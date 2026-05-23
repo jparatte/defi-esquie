@@ -298,7 +298,7 @@
 <div class="hero">
   <div class="hero-icon">🏔️</div>
   <h1>Les Pierres Perdues</h1>
-  <p>Quatre pierres t'attendent dans les montagnes.<br>Rends-toi sur chaque lieu pour les découvrir.</p>
+  <p>Deux pierres t'attendent dans les montagnes.<br>Rends-toi sur chaque lieu pour les découvrir.</p>
 </div>
 
 <div class="gps-bar" id="gps-bar">
@@ -309,7 +309,7 @@
 <div class="progress-wrap">
   <div class="progress-row">
     <span class="progress-label">Pierres trouvées</span>
-    <span class="progress-count" id="progress-count">0 / 4</span>
+    <span class="progress-count" id="progress-count">0 / 2</span>
   </div>
   <div class="progress-track">
     <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
@@ -328,32 +328,18 @@
 
 const LOCATIONS = [
   {
-    name:    "Le sommet du Monolithe",
-    emoji:   "🗿",
-    lat:     46.51102863416759,
-    lng:     6.740733286712256,
-    message: "Bravo ! Tu as trouvé Soarrie !",
+    name:    "Bellinzone",
+    emoji:   "🏰",
+    lat:     46.19509030226961,
+    lng:     9.028479230177574,
+    message: "Bravo ! Premier point",
   },
   {
-    name:    "Le jardin du Manoir",
-    emoji:   "🌿",
-    lat:     46.431738103102454,
-    lng:     6.982129990961318,
-    message: "Bravo ! Tu as trouvé Dorrie !",
-  },
-  {
-    name:    "La plage des Gestrals",
-    emoji:   "🏞️",
-    lat:     46.34510576707501,
-    lng:     6.832572429256505,
-    message: "Bravo ! Tu as trouvé Urrie !",
-  },
-  {
-    name:    "Les Falaises de Rochevague",
-    emoji:   "⛰️",
-    lat:     46.2520575769033,
-    lng:     7.144349544029128,
-    message: "Bravo ! Tu as trouvé Florie !",
+    name:    "Sonogno",
+    emoji:   "🌄",
+    lat:     46.350679736013205,
+    lng:     8.78761457318551,
+    message: "Bravo ! Deuxième point :)",
   },
 ];
 
@@ -423,12 +409,12 @@ function buildCards() {
 
 function refreshProgress() {
   const count = Object.keys(validated).length;
-  document.getElementById("progress-count").textContent = `${count} / 4`;
-  document.getElementById("progress-fill").style.width  = `${count * 25}%`;
+  document.getElementById("progress-count").textContent = `${count} / 2`;
+  document.getElementById("progress-fill").style.width  = `${count * 50}%`;
 }
 
 function refreshReveal() {
-  if (Object.keys(validated).length === 4) {
+  if (Object.keys(validated).length === 2) {
     document.getElementById("reveal-body").textContent = REVEAL_MESSAGE;
     document.getElementById("reveal").classList.add("visible");
   }
