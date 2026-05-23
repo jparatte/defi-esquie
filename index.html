@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Les Pierres Perdues</title>
+  <style>
+    :root {
+      --bg:         #141f14;
+      --surface:    #1e2e1e;
+      --surface2:   #243424;
+      --border:     #2e422e;
+      --accent:     #7fc847;
+      --accent-dim: #4a7a28;
+      --gold:       #d4a843;
+      --gold-dim:   #7a5e1e;
+      --text:       #ddeedd;
+      --muted:      #7a9a7a;
+      --success:    #4caf50;
+      --danger:     #e57373;
+      --stone:      #8a9e8a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 48px;
+    }
+
+    /* ── Header ── */
+    .hero {
+      text-align: center;
+      padding: 40px 24px 28px;
+      background: linear-gradient(180deg, #0e1a0e 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-icon { font-size: 3rem; line-height: 1; margin-bottom: 12px; }
+
+    .hero h1 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+    }
+
+    .hero p {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── GPS status bar ── */
+    .gps-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .gps-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .gps-bar.active  .gps-dot { background: var(--accent); animation: pulse 2s infinite; }
+    .gps-bar.error   .gps-dot { background: var(--danger); }
+    .gps-bar.error   { color: var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* ── Progress ── */
+    .progress-wrap {
+      padding: 20px 20px 8px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .progress-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .progress-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .progress-count { font-size: 0.9rem; font-weight: 600; color: var(--accent); }
+
+    .progress-track {
+      height: 5px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ── Cards ── */
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 16px 20px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .card.nearby {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(127, 200, 71, 0.18), 0 4px 24px rgba(127, 200, 71, 0.10);
+    }
+
+    .card.nearby::before {
+      background: radial-gradient(ellipse at top left, rgba(127,200,71,0.06), transparent 70%);
+      opacity: 1;
+    }
+
+    .card.validated {
+      border-color: var(--success);
+    }
+
+    .card.locked { opacity: 0.62; }
+
+    /* Card header row */
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .card-emoji {
+      font-size: 2rem;
+      line-height: 1;
+      flex-shrink: 0;
+      width: 40px;
+      text-align: center;
+    }
+
+    .card-info { flex: 1; min-width: 0; }
+
+    .card-name {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-dist {
+      margin-top: 3px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .card-badge {
+      flex-shrink: 0;
+      font-size: 1.3rem;
+      margin-left: 6px;
+    }
+
+    /* Success message */
+    .card-msg {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: rgba(76, 175, 80, 0.12);
+      border: 1px solid rgba(76, 175, 80, 0.25);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      color: #a5d6a7;
+      line-height: 1.5;
+    }
+
+    .card.validated .card-msg { display: block; }
+
+    /* Validate button */
+    .btn-validate {
+      display: none;
+      margin-top: 14px;
+      width: 100%;
+      padding: 13px 16px;
+      background: var(--accent);
+      color: #0e1a0e;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    .btn-validate:active { transform: scale(0.97); background: var(--accent-dim); }
+
+    .card.nearby:not(.validated) .btn-validate { display: block; }
+
+    /* ── Reveal ── */
+    .reveal {
+      display: none;
+      margin: 8px 20px 0;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+      background: linear-gradient(135deg, #2a3d1e, #1e2e14);
+      border: 1px solid var(--gold-dim);
+      border-radius: 18px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .reveal::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at top right, rgba(212,168,67,0.10), transparent 65%);
+      pointer-events: none;
+    }
+
+    .reveal.visible { display: block; }
+
+    .reveal-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 14px;
+    }
+
+    .reveal-body {
+      font-size: 0.92rem;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    /* ── Confetti flash on validate ── */
+    @keyframes flash {
+      0%   { opacity: 0.4; }
+      100% { opacity: 0; }
+    }
+
+    .flash-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(127, 200, 71, 0.2);
+      pointer-events: none;
+      animation: flash 0.6s ease-out forwards;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-icon">🏔️</div>
+  <h1>Les Pierres Perdues</h1>
+  <p>Quatre pierres t'attendent dans les montagnes.<br>Rends-toi sur chaque lieu pour les découvrir.</p>
+</div>
+
+<div class="gps-bar" id="gps-bar">
+  <div class="gps-dot"></div>
+  <span id="gps-text">Localisation en cours…</span>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-row">
+    <span class="progress-label">Pierres trouvées</span>
+    <span class="progress-count" id="progress-count">0 / 4</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+  </div>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="reveal" id="reveal">
+  <div class="reveal-title">✨ Message des pierres</div>
+  <div class="reveal-body" id="reveal-body"></div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+
+const LOCATIONS = [
+  {
+    name:    "Le sommet du Monolithe",
+    emoji:   "🗿",
+    lat:     46.51102863416759,
+    lng:     6.740733286712256,
+    message: "Bravo ! Tu as trouvé Soarrie !",
+  },
+  {
+    name:    "Le jardin du Manoir",
+    emoji:   "🌿",
+    lat:     46.431738103102454,
+    lng:     6.982129990961318,
+    message: "Bravo ! Tu as trouvé Dorrie !",
+  },
+  {
+    name:    "La plage des Gestrals",
+    emoji:   "🏞️",
+    lat:     46.34510576707501,
+    lng:     6.832572429256505,
+    message: "Bravo ! Tu as trouvé Urrie !",
+  },
+  {
+    name:    "Les Falaises de Rochevague",
+    emoji:   "⛰️",
+    lat:     46.2520575769033,
+    lng:     7.144349544029128,
+    message: "Bravo ! Tu as trouvé Florie !",
+  },
+];
+
+const REVEAL_MESSAGE =
+`Bravo ! Tu as trouvé toutes mes pierres perdues :) Moi j'ai pu perfectionner l'art de la sieste, mon prochain objectif sera de perfectionner mes poèmes pour les oiseaux.
+
+Au fait, Johan et Noémie m'ont dit que l'emplacement des pierres révélait un secret supplémentaire. Pour le trouver, il faut prendre une carte et tracer deux traits. Le premier entre Le sommet du Monolithe et Les falaises de Rochevague, et le deuxième trait entre Le jardin du Manoir et La Plage des Gestrals. L'endroit où ces deux traits se croisent est un point de rendez-vous. Contacte Johan et Noémie pour savoir quand tu devras t'y rendre...`;
+
+const RADIUS_METERS = 100;
+const STORAGE_KEY   = "pierres_perdues_v1";
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(validated));
+}
+
+const validated = loadState(); // { "0": true, "2": true, … }
+const nearby    = new Set();
+let   cardEls   = [];
+
+// ── Haversine ─────────────────────────────────────────────────────────────────
+
+function distMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+          + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+          * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function buildCards() {
+  const container = document.getElementById("cards");
+  container.innerHTML = "";
+  cardEls = LOCATIONS.map((loc, i) => {
+    const el = document.createElement("div");
+    el.className = "card" + (validated[i] ? " validated" : " locked");
+    el.innerHTML = `
+      <div class="card-head">
+        <div class="card-emoji">${loc.emoji}</div>
+        <div class="card-info">
+          <div class="card-name">${loc.name}</div>
+          <div class="card-dist" id="dist-${i}">—</div>
+        </div>
+        <div class="card-badge" id="badge-${i}">${validated[i] ? "✅" : "🔒"}</div>
+      </div>
+      <div class="card-msg">${loc.message}</div>
+      <button class="btn-validate" onclick="validate(${i})">
+        📍 Valider ma présence ici !
+      </button>
+    `;
+    container.appendChild(el);
+    return el;
+  });
+  refreshProgress();
+  refreshReveal();
+}
+
+function refreshProgress() {
+  const count = Object.keys(validated).length;
+  document.getElementById("progress-count").textContent = `${count} / 4`;
+  document.getElementById("progress-fill").style.width  = `${count * 25}%`;
+}
+
+function refreshReveal() {
+  if (Object.keys(validated).length === 4) {
+    document.getElementById("reveal-body").textContent = REVEAL_MESSAGE;
+    document.getElementById("reveal").classList.add("visible");
+  }
+}
+
+// ── Validate ──────────────────────────────────────────────────────────────────
+
+function validate(i) {
+  if (validated[i]) return;
+  validated[i] = true;
+  saveState();
+
+  const card = cardEls[i];
+  card.classList.remove("locked", "nearby");
+  card.classList.add("validated");
+  document.getElementById("badge-" + i).textContent = "✅";
+
+  // Flash effect
+  const flash = document.createElement("div");
+  flash.className = "flash-overlay";
+  document.body.appendChild(flash);
+  flash.addEventListener("animationend", () => flash.remove());
+
+  refreshProgress();
+  refreshReveal();
+}
+
+// ── GPS ───────────────────────────────────────────────────────────────────────
+
+function onPosition(pos) {
+  const { latitude, longitude, accuracy } = pos.coords;
+  const bar = document.getElementById("gps-bar");
+  bar.className = "gps-bar active";
+  document.getElementById("gps-text").textContent =
+    `GPS actif — précision ±${Math.round(accuracy)} m`;
+
+  LOCATIONS.forEach((loc, i) => {
+    const dist = distMeters(latitude, longitude, loc.lat, loc.lng);
+    const distEl = document.getElementById("dist-" + i);
+    if (distEl) {
+      distEl.textContent = dist < 1000
+        ? `${Math.round(dist)} m`
+        : `${(dist / 1000).toFixed(1)} km`;
+    }
+
+    if (validated[i]) return;
+
+    if (dist <= RADIUS_METERS) {
+      nearby.add(i);
+      cardEls[i].classList.add("nearby");
+      cardEls[i].classList.remove("locked");
+    } else {
+      nearby.delete(i);
+      cardEls[i].classList.remove("nearby");
+      cardEls[i].classList.add("locked");
+    }
+  });
+}
+
+function onError(err) {
+  const bar = document.getElementById("gps-bar");
+  bar.className = "gps-bar error";
+  document.getElementById("gps-text").textContent =
+    err.code === 1
+      ? "Accès à la localisation refusé — autorise-le dans les réglages."
+      : "Impossible d'obtenir ta position.";
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
+buildCards();
+
+if ("geolocation" in navigator) {
+  navigator.geolocation.watchPosition(onPosition, onError, {
+    enableHighAccuracy: true,
+    maximumAge:         5000,
+    timeout:            15000,
+  });
+} else {
+  const bar = document.getElementById("gps-bar");
+  bar.className = "gps-bar error";
+  document.getElementById("gps-text").textContent = "Géolocalisation non supportée sur cet appareil.";
+}
+</script>
+</body>
+</html>
