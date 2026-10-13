@@ -1,5 +1,5 @@
-import { game as configuredGame } from './game-config.js?v=6';
-import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=6';
+import { game as configuredGame } from './game-config.js?v=7';
+import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=7';
 
 const app = document.querySelector('#app');
 const params = new URLSearchParams(location.search);
@@ -108,7 +108,7 @@ function panelContent() {
     case 'quest-success': return `<p class="eyebrow">Indice retrouvé</p><h1 class="speaker">Esquie :</h1><p class="panel-copy">${escape(currentStep().successMessage)}</p><div class="dialogue-frame">${button('Continuer', 'success-continue')}</div>`;
     case 'outro-pending': return '<p class="eyebrow">Dernière rencontre</p><h1>Tu es arrivée.</h1><p class="panel-copy">Esquie t’attend ici.</p><p class="panel-note">La dernière rencontre se prépare.</p>';
     case 'travel': {
-      const dialogueReady = currentStep().dialogue && (isDevelopment || progress.arrived || !arrivalRequired());
+      const dialogueReady = currentStep().dialogue && (progress.arrived || !arrivalRequired());
       return `<p class="eyebrow">${['finale', 'outro'].includes(currentStep().kind) ? 'Dernière destination' : dialogueReady ? 'Dialogue' : 'En chemin'}</p><h1>${escape(currentStep().title)}</h1>${dialogueReady ? '' : `<p class="panel-copy instruction">${escape(currentStep().instruction)}</p>`}
         <div id="location-area"></div><div id="answer-area"></div>`;
     }
@@ -223,13 +223,17 @@ function renderWelcome() {
 
 function renderTravel() {
   if (!isDevelopment && currentStep().destination) updateLocationUI();
+  if (isDevelopment && arrivalRequired() && !progress.arrived) {
+    document.querySelector('#location-area').innerHTML = `<p class="panel-note">GPS désactivé pour ce test.</p>${button('Simuler l’arrivée', 'simulate-arrival')}`;
+    document.querySelector('#simulate-arrival').addEventListener('click', () => transition('travel', { arrived: true }));
+  }
   const area = document.querySelector('#answer-area');
   if (!isDevelopment && arrivalRequired() && !currentStep().destination) {
     document.querySelector('#location-area').innerHTML = '<p class="panel-note">La prochaine rencontre se prépare.</p>';
     area.innerHTML = '<p class="locked-note">Le point de rendez-vous sera bientôt dévoilé.</p>';
     return;
   }
-  if (!isDevelopment && arrivalRequired() && !progress.arrived) {
+  if (arrivalRequired() && !progress.arrived) {
     area.innerHTML = `<p class="locked-note"><span aria-hidden="true">◇</span> ${currentStep().kind === 'outro' ? 'Esquie t’attend à destination.' : 'Le dialogue se dévoilera à ton arrivée.'}</p>`;
     return;
   }

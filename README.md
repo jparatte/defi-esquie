@@ -34,7 +34,7 @@ Pour tester toute l’expédition sans être sur place, ajouter **`?dev=1`** à 
 - `https://jparatte.github.io/defi-esquie/expedition/?dev=1` — ouvrir le parcours de développement après déverrouillage.
 - Les liens **Après l’intro**, **Étapes 1 à 4**, **Assemblage** et **Dernier trajet** dans la barre de développement donnent accès directement aux nouveaux écrans, sans sauvegarder ces aperçus.
 
-Le mode de développement ne demande jamais la localisation. Sa progression utilise une clé séparée (`roxane-expedition-v2:development:progress`). Revenir à l’adresse sans `dev=1` réactive les barrières GPS et la sauvegarde normale. Le mot de passe reste nécessaire dans les deux modes.
+Le mode de développement ne demande jamais la localisation. Les indications du trajet s’affichent avant chaque énigme soumise au GPS ; **Simuler l’arrivée** ouvre ensuite le dialogue et la saisie. Le dernier trajet se valide avec le même bouton pour accéder à la conclusion. L’étape 1 et l’assemblage restent directement accessibles, car ils n’ont pas de barrière GPS. Sa progression utilise une clé séparée (`roxane-expedition-v2:development:progress`). Revenir à l’adresse sans `dev=1` réactive les barrières GPS et la sauvegarde normale. Le mot de passe reste nécessaire dans les deux modes.
 
 ### Contenu actuel
 
@@ -50,7 +50,7 @@ L’assemblage vient après le quatrième indice et **avant le déplacement fina
 
 La dernière destination est **46.39642852805132, 6.924606352128569**, avec un rayon de **10 mètres**. Le type `outro` joue une seule vidéo après l’arrivée, puis termine l’expédition. Pour l’instant, son champ `video` vaut `null` : un écran provisoire confirme l’arrivée et la sauvegarde reste en phase `outro-pending`. Lorsque le fichier est disponible, le placer dans `expedition/scenes/` et renseigner son chemin dans `video`. Une arrivée déjà sauvegardée reprend alors la vidéo sans devoir retourner au point GPS. Les vidéos intermédiaires et le visuel actuel d’Esquie restent inchangés.
 
-Les aperçus directs sont `expedition/?dev=1&preview=step2`, `step3`, `step4`, `assembly` et `arrival` (valeurs du paramètre `preview`), après déverrouillage. En mode normal, `?preview=arrival` permet de voir les indications du dernier trajet et de simuler l’arrivée ; en mode développement, l’arrivée est immédiate. Une sauvegarde ayant terminé le contenu précédent reprend à la nouvelle étape ajoutée, sans refaire l’introduction ou les indices déjà validés.
+Les aperçus directs sont `expedition/?dev=1&preview=step2`, `step3`, `step4`, `assembly` et `arrival` (valeurs du paramètre `preview`), après déverrouillage. En mode normal, `?preview=arrival` permet de voir les indications du dernier trajet et de simuler l’arrivée ; en mode développement, les indications s’affichent également et **Simuler l’arrivée** ouvre la conclusion. Une sauvegarde ayant terminé le contenu précédent reprend à la nouvelle étape ajoutée, sans refaire l’introduction ou les indices déjà validés.
 
 Run `npm start` in this repository and open http://127.0.0.1:4173. Use `npm test` for legacy-progress and password-gate regression checks. Configure real quest/finale content in `expedition/game-config.js`.
 

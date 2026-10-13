@@ -246,6 +246,9 @@ test('step two hides the Byron dialogue until a fresh GPS fix within 10 metres',
 
 test('step two dev shortcut offers the requested hint and success without GPS or saved progress changes', () => {
   const app = bootApp(undefined, { search: '?dev=1&preview=step2' });
+  assert.equal(app.nodes.has('answer'), false);
+  assert.match(app.nodes.get('app').innerHTML, /Gramont/);
+  app.click('simulate-arrival');
   assert.ok(app.nodes.has('answer'));
   app.nodes.get('answer').value = 'Chillon';
   app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
@@ -326,10 +329,15 @@ test('all new author previews bypass GPS without saving and the medicinal spelli
     const app = bootApp(undefined, { search: `?dev=1&preview=${preview}` });
     assert.equal(app.watches.length, 0);
     assert.equal(app.progress(), null);
+    if (preview !== 'assembly') {
+      assert.equal(app.nodes.has('answer'), false);
+      app.click('simulate-arrival');
+    }
     assert.equal(app.nodes.has('answer'), preview !== 'arrival');
     if (preview === 'arrival') assert.match(app.nodes.get('app').innerHTML, /Tu es arrivée/);
   }
   const app = bootApp({ phase: 'travel', stepIndex: 2, arrived: false }, { search: '?dev=1' });
+  app.click('simulate-arrival');
   app.nodes.get('answer').value = 'Simples';
   app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
   assert.equal(app.progress().phase, 'travel');
@@ -374,9 +382,48 @@ test('the former end-of-content save resumes at the appended quest in normal and
     const app = bootApp(saved, { search });
     assert.match(app.nodes.get('app').innerHTML, /Le deuxième indice/);
     assert.equal(app.nodes.has('begin'), false);
-    assert.equal(app.nodes.has('answer'), search === '?dev=1');
+    assert.equal(app.nodes.has('answer'), false);
+    assert.equal(app.nodes.has('simulate-arrival'), search === '?dev=1');
     assert.equal(app.storage.get('pierres_perdues_v1'), '{"0":true,"1":true,"2":true,"3":true}');
     app.click('restart'); app.click('restart-accept');
     assert.deepEqual(app.progress(), { phase: 'welcome', stepIndex: 0, arrived: false });
   }
+});
+
+test('development journey displays each route and simulates arrival without GPS or live progress changes', () => {
+  const liveProgress = { phase: 'travel', stepIndex: 0, arrived: false };
+  const app = bootApp({ phase: 'travel', stepIndex: 1, arrived: false }, { search: '?dev=1', liveProgress });
+  for (const [stepIndex, answer, routeText] of [[1, 'île de Peilz', /Gramont/], [2, 'médicinal', /oiseaux bleus/], [3, 'Sion', /collier coloré/]]) {
+    assert.deepEqual(app.progress(), { phase: 'travel', stepIndex, arrived: false });
+    assert.match(app.nodes.get('app').innerHTML, routeText);
+    assert.equal(app.nodes.has('answer'), false);
+    assert.equal(app.nodes.has('locate'), false);
+    const routeReload = bootApp(app.progress(), { search: '?dev=1' });
+    assert.ok(routeReload.nodes.has('simulate-arrival'));
+    app.click('simulate-arrival');
+    assert.equal(app.progress().arrived, true);
+    assert.ok(app.nodes.has('answer'));
+    assert.doesNotMatch(app.nodes.get('app').innerHTML, routeText);
+    const arrivedReload = bootApp(app.progress(), { search: '?dev=1' });
+    assert.ok(arrivedReload.nodes.has('answer'));
+    assert.equal(arrivedReload.nodes.has('simulate-arrival'), false);
+    app.nodes.get('answer').value = answer;
+    app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+    app.click('success-continue');
+  }
+  assert.ok(app.nodes.has('answer'));
+  assert.equal(app.nodes.has('simulate-arrival'), false);
+  app.nodes.get('answer').value = 'Expédition';
+  app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  app.click('success-continue');
+  assert.match(app.nodes.get('app').innerHTML, /Bourg Historique/);
+  assert.equal(app.progress().phase, 'travel');
+  assert.equal(app.progress().arrived, false);
+  app.click('simulate-arrival');
+  assert.equal(app.progress().phase, 'outro-pending');
+  assert.equal(app.watches.length, 0);
+  app.document.hidden = true; app.documentEvents.get('visibilitychange')();
+  app.document.hidden = false; app.documentEvents.get('visibilitychange')();
+  assert.equal(app.watches.length, 0);
+  assert.equal(app.storage.get(`${game.id}:progress`), JSON.stringify(liveProgress));
 });
