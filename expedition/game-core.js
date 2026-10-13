@@ -38,6 +38,7 @@ export function isValidProgress(progress, steps) {
 export function validateGame(config) {
   const errors = [];
   if (!config.id || !config.intro?.firstVideo || !config.intro?.secondVideo || !config.intro?.image || !config.intro?.choice) errors.push('Introduction incomplète.');
+  if (config.start && !validDestination(config.start)) errors.push('Coordonnées ou rayon du point de départ invalides.');
   if (!Array.isArray(config.steps)) return [...errors, 'La liste des étapes est invalide.'];
   const ids = new Set();
   for (const [index, step] of config.steps.entries()) {
@@ -45,7 +46,7 @@ export function validateGame(config) {
     ids.add(step.id);
     if (!step.title || !step.image || !step.instruction) errors.push(`Étape ${index + 1} : titre, image ou instruction manquants.`);
     const d = step.destination;
-    if (!d || !Number.isFinite(d.latitude) || Math.abs(d.latitude) > 90 || !Number.isFinite(d.longitude) || Math.abs(d.longitude) > 180 || !Number.isFinite(d.radiusMeters) || d.radiusMeters <= 0) errors.push(`Étape ${index + 1} : coordonnées ou rayon invalides.`);
+    if (!validDestination(d)) errors.push(`Étape ${index + 1} : coordonnées ou rayon invalides.`);
     if (step.kind === 'quest') {
       if (!Array.isArray(step.answers) || !step.answers.length || step.answers.some(a => typeof a !== 'string' || !normalizeAnswer(a)) || !step.video || !step.hint) errors.push(`Étape ${index + 1} : réponses, vidéo ou indice manquants.`);
     } else if (step.kind === 'finale') {
@@ -53,4 +54,10 @@ export function validateGame(config) {
     } else errors.push(`Étape ${index + 1} : type inconnu.`);
   }
   return errors;
+}
+
+function validDestination(d) {
+  return d && Number.isFinite(d.latitude) && Math.abs(d.latitude) <= 90 &&
+    Number.isFinite(d.longitude) && Math.abs(d.longitude) <= 180 &&
+    Number.isFinite(d.radiusMeters) && d.radiusMeters > 0;
 }

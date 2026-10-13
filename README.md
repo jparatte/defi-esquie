@@ -8,7 +8,13 @@ The old localStorage key remains **`pierres_perdues_v1`**, with the same numeric
 
 `continuation-config.js` controls `archiveCompleted`. If enabled, all four stones and the original reveal display as completed even with an empty or partial browser save. This changes the displayed state only: the original stored record is never rewritten by the archive. A completed challenge no longer requests GPS access.
 
-The expedition saves separately under **`roxane-expedition-v1:progress`**. Its **Recommencer** button resets only the new expedition.
+The expedition saves separately under **`roxane-expedition-v2:progress`**. This starts a fresh session for the GPS-gated field test; the previous intro test save (`roxane-expedition-v1:progress`) is retained. Its **Recommencer** button resets only the new expedition.
+
+## Starting-point field test
+
+After entering the password, the welcome screen displays distance to the starting point (46.39684880936414, 6.922843310544531). Tap **Activer la localisation** and allow location access. **Commencer l’expédition** appears once a fresh GPS fix is within **10 metres**. The destination remains hidden on the player screen, and reported GPS precision appears alongside the distance.
+
+Starting-point coordinates and the radius are configured in `expedition/game-config.js` under `start`. Arrival stays unlocked despite GPS drift and reloads. Use **Recommencer → Oui, recommencer** to relock it for another test. An interrupted journey resumes its saved phase without requiring a return to the starting point. Removing `start` restores the original ungated welcome screen.
 
 ## Open the last challenge
 

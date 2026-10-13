@@ -1,5 +1,5 @@
-import { game as configuredGame } from './game-config.js';
-import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js';
+import { game as configuredGame } from './game-config.js?v=3';
+import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=3';
 
 const app = document.querySelector('#app');
 const preview = new URLSearchParams(location.search).get('preview');
@@ -21,6 +21,7 @@ let progress = restoreProgress();
 let replaying = false;
 let muted = false;
 let watchId = null;
+let trackingGeneration = 0;
 let trackingRequested = false;
 let distance = null;
 let accuracy = null;
@@ -63,6 +64,8 @@ function nextStep() {
 }
 
 function currentStep() { return game.steps[progress.stepIndex]; }
+function isStarting() { return progress.phase === 'welcome' && Boolean(game.start); }
+function needsLocation() { return isStarting() || progress.phase === 'travel'; }
 function isVideoPhase() { return ['intro-a', 'intro-b', 'quest-video', 'final-a', 'final-b'].includes(progress.phase) || replaying; }
 function isIntro() { return progress.phase.startsWith('intro') || progress.phase === 'welcome' || !game.steps.length; }
 function imagePath() { return isIntro() ? game.intro.image : currentStep()?.image || game.steps.at(-1)?.image || game.intro.image; }
@@ -88,7 +91,7 @@ function panelContent() {
     <div class="video-track" aria-hidden="true"><span id="video-progress"></span></div>
     <p id="media-status" class="panel-note" role="status">La suite apparaîtra à la fin de la vidéo.</p>`;
   switch (progress.phase) {
-    case 'welcome': return `<p class="eyebrow">Prologue</p><h1>Une rencontre<br>avec Esquie</h1><p class="panel-copy">Roxane, ton expédition commence ici.</p><div class="dialogue-frame">${button('Commencer l’expédition', 'begin')}</div><p class="panel-note">Installe-toi un instant et active le son.</p>`;
+    case 'welcome': return `<p class="eyebrow">Prologue</p><h1>Une rencontre<br>avec Esquie</h1><p class="panel-copy">${game.start ? 'Retrouve Esquie au point de départ.' : 'Roxane, ton expédition commence ici.'}</p>${game.start ? '<div id="location-area"></div><div id="start-area"></div>' : `<div class="dialogue-frame">${button('Commencer l’expédition', 'begin')}</div><p class="panel-note">Installe-toi un instant et active le son.</p>`}`;
     case 'intro-dialogue': return dialogPanel(game.intro.speaker, game.intro.choice);
     case 'final-dialogue': return dialogPanel(currentStep().speaker || 'Roxane', currentStep().choice);
     case 'travel': return `<p class="eyebrow">${currentStep().kind === 'finale' ? 'Dernière destination' : 'En chemin'}</p><h1>${escape(currentStep().title)}</h1><p class="panel-copy instruction">${escape(currentStep().instruction)}</p>
@@ -114,7 +117,6 @@ function render() {
       <footer class="panel-footer"><div class="journey-mark" aria-hidden="true">${progressMarkers()}</div><button id="restart" class="text-button" type="button">Recommencer</button></footer><div id="restart-confirmation"></div>
       ${!storageAvailable && !isPreview ? '<p class="storage-note" role="status">La sauvegarde est indisponible. Garde cette page ouverte pendant le voyage.</p>' : ''}
     </section>`;
-  document.querySelector('#begin')?.addEventListener('click', () => transition('intro-a'));
   document.querySelector('#dialogue-choice')?.addEventListener('click', () => transition(progress.phase === 'intro-dialogue' ? 'intro-b' : 'final-b'));
   document.querySelector('#replay')?.addEventListener('click', () => { replaying = true; render(); });
   document.querySelector('#sound').addEventListener('click', () => {
@@ -139,7 +141,13 @@ function render() {
     document.querySelector('#restart-cancel').focus();
   });
   if (isVideoPhase()) attachVideo();
-  if (progress.phase === 'travel') { renderTravel(); if (trackingRequested && !isPreview && !progress.arrived) startTracking(); }
+  if (isStarting()) renderWelcome();
+  if (progress.phase === 'travel') renderTravel();
+  document.querySelector('#begin')?.addEventListener('click', () => {
+    if (game.start && !progress.arrived) return;
+    transition('intro-a', { arrived: false });
+  });
+  if (needsLocation() && trackingRequested && !isPreview && !progress.arrived) startTracking();
 }
 
 function soundIcon() {
@@ -186,6 +194,13 @@ function attachVideo() {
   play();
 }
 
+function renderWelcome() {
+  updateLocationUI();
+  document.querySelector('#start-area').innerHTML = progress.arrived
+    ? `<div class="dialogue-frame">${button('Commencer l’expédition', 'begin')}</div><p class="panel-note">Installe-toi un instant et active le son.</p>`
+    : '<p class="locked-note"><span aria-hidden="true">◇</span> L’expédition débutera à ton arrivée.</p>';
+}
+
 function renderTravel() {
   updateLocationUI();
   const area = document.querySelector('#answer-area');
@@ -210,31 +225,33 @@ function renderTravel() {
 function updateLocationUI() {
   const area = document.querySelector('#location-area');
   if (!area) return;
-  const proximity = distance === null ? 'Un peu plus près…' : distance < 1000 ? `À ${Math.round(distance)} m` : `À ${(distance / 1000).toFixed(1).replace('.', ',')} km`;
-  area.innerHTML = `<div class="distance-hud"><span class="hud-diamond" aria-hidden="true">✧</span><div><strong>${progress.arrived ? 'Tu es arrivée' : proximity}</strong><p>${progress.arrived ? 'La piste est à portée de main.' : escape(locationMessage)}</p>${accuracy !== null && !progress.arrived ? `<small>Précision GPS : ± ${Math.round(accuracy)} m</small>` : ''}</div></div>
+  const proximity = distance === null ? 'Position en attente' : distance < 1000 ? `À ${Math.round(distance)} m` : `À ${(distance / 1000).toFixed(1).replace('.', ',')} km`;
+  area.innerHTML = `<div class="distance-hud"><span class="hud-diamond" aria-hidden="true">✧</span><div><strong>${progress.arrived ? 'Tu es arrivée' : proximity}</strong><p>${progress.arrived ? (isStarting() ? 'Esquie t’attend ici.' : 'La piste est à portée de main.') : escape(locationMessage)}</p>${accuracy !== null && !progress.arrived ? `<small>Précision GPS : ± ${Math.round(accuracy)} m</small>` : ''}</div></div>
     ${!progress.arrived && (isPreview || watchId === null) ? button(isPreview ? 'Simuler l’arrivée' : 'Activer la localisation', 'locate', true) : ''}`;
   document.querySelector('#locate')?.addEventListener('click', () => {
-    if (isPreview) { transition('travel', { arrived: true }); return; }
+    if (isPreview) { transition(progress.phase, { arrived: true }); return; }
     trackingRequested = true; startTracking();
   });
 }
 
 function startTracking() {
-  if (watchId !== null || progress.phase !== 'travel' || progress.arrived || document.hidden) return;
+  if (watchId !== null || !needsLocation() || progress.arrived || document.hidden) return;
   if (!navigator.geolocation || !window.isSecureContext) {
     locationMessage = 'La localisation est indisponible dans ce navigateur.'; updateLocationUI(); return;
   }
   locationMessage = 'À la recherche de ta position…';
+  const generation = trackingGeneration;
   watchId = navigator.geolocation.watchPosition(position => {
-    if (progress.phase !== 'travel' || progress.arrived) return;
+    if (generation !== trackingGeneration || !needsLocation() || progress.arrived) return;
     if (Date.now() - position.timestamp > 30000) { locationMessage = 'Ta position est ancienne. Recherche en cours…'; updateLocationUI(); return; }
-    const destination = currentStep().destination;
+    const destination = isStarting() ? game.start : currentStep().destination;
     distance = distanceMeters(position.coords, destination);
     accuracy = position.coords.accuracy;
-    locationMessage = 'De ta prochaine rencontre';
-    if (isAtDestination(position.coords, destination)) transition('travel', { arrived: true });
+    locationMessage = isStarting() ? 'Du point de départ' : 'De ta prochaine rencontre';
+    if (isAtDestination(position.coords, destination)) transition(progress.phase, { arrived: true });
     else updateLocationUI();
   }, error => {
+    if (generation !== trackingGeneration) return;
     stopTracking();
     locationMessage = error.code === 1 ? 'Autorise la localisation dans ton navigateur pour poursuivre.' : 'Ta position est introuvable. Réessaie dans un instant.';
     updateLocationUI();
@@ -243,13 +260,14 @@ function startTracking() {
 }
 
 function stopTracking() {
+  trackingGeneration++;
   if (watchId !== null) navigator.geolocation?.clearWatch(watchId);
   watchId = null;
 }
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { stopTracking(); document.querySelector('#scene-video')?.pause(); }
-  else if (trackingRequested && !isPreview && progress.phase === 'travel' && !progress.arrived) startTracking();
+  else if (trackingRequested && !isPreview && needsLocation() && !progress.arrived) startTracking();
 });
 
 const configErrors = validateGame(game);
