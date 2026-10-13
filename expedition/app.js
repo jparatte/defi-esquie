@@ -1,12 +1,13 @@
-import { game as configuredGame } from './game-config.js?v=5';
-import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=5';
+import { game as configuredGame } from './game-config.js?v=6';
+import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=6';
 
 const app = document.querySelector('#app');
 const params = new URLSearchParams(location.search);
 const isDevelopment = params.get('dev') === '1';
 const preview = params.get('preview');
 const usesSample = ['dialogue', 'quest', 'finale'].includes(preview);
-const isPreview = usesSample || ['briefing', 'step1', 'step2'].includes(preview);
+const questPreviews = ['step1', 'step2', 'step3', 'step4', 'assembly', 'arrival'];
+const isPreview = usesSample || preview === 'briefing' || questPreviews.includes(preview);
 const sampleStep = {
   id: 'apercu', kind: preview === 'finale' ? 'finale' : 'quest',
   title: preview === 'finale' ? 'Le dernier rendez-vous' : 'La première piste',
@@ -35,7 +36,7 @@ function escape(text) {
 }
 
 function restoreProgress() {
-  if (isPreview) return { phase: preview === 'dialogue' ? 'intro-dialogue' : preview === 'briefing' ? 'intro-briefing' : 'travel', stepIndex: preview === 'step2' ? 1 : 0, arrived: false };
+  if (isPreview) return { phase: preview === 'dialogue' ? 'intro-dialogue' : preview === 'briefing' ? 'intro-briefing' : 'travel', stepIndex: Math.max(0, questPreviews.indexOf(preview)), arrived: false };
   let raw;
   try {
     raw = localStorage.getItem(storageKey);
@@ -74,14 +75,14 @@ function currentStep() { return game.steps[progress.stepIndex]; }
 function isStarting() { return !isDevelopment && progress.phase === 'welcome' && Boolean(game.start); }
 function needsLocation() { return !isDevelopment && (isStarting() || (progress.phase === 'travel' && Boolean(currentStep()?.destination))); }
 function arrivalRequired() { return isStarting() || currentStep()?.requireArrival !== false; }
-function hasFinale() { return game.steps.at(-1)?.kind === 'finale'; }
-function isVideoPhase() { return ['intro-a', 'intro-b', 'quest-video', 'final-a', 'final-b'].includes(progress.phase) || replaying; }
+function hasFinale() { return ['finale', 'outro'].includes(game.steps.at(-1)?.kind); }
+function isVideoPhase() { return ['intro-a', 'intro-b', 'quest-video', 'final-a', 'final-b', 'outro-video'].includes(progress.phase) || replaying; }
 function isIntro() { return progress.phase.startsWith('intro') || progress.phase === 'welcome' || !game.steps.length; }
 function imagePath() { return isIntro() ? game.intro.image : currentStep()?.image || game.steps.at(-1)?.image || game.intro.image; }
 function videoPath() {
   if (replaying) return progress.phase === 'intro-dialogue' ? game.intro.firstVideo : currentStep().firstVideo;
   return ({ 'intro-a': game.intro.firstVideo, 'intro-b': game.intro.secondVideo,
-    'quest-video': currentStep()?.video, 'final-a': currentStep()?.firstVideo, 'final-b': currentStep()?.secondVideo })[progress.phase];
+    'quest-video': currentStep()?.video, 'final-a': currentStep()?.firstVideo, 'final-b': currentStep()?.secondVideo, 'outro-video': currentStep()?.video })[progress.phase];
 }
 
 function button(text, id, secondary = false) {
@@ -105,9 +106,10 @@ function panelContent() {
     case 'intro-briefing': return `<p class="eyebrow">Dialogue</p><h1 class="speaker">${escape(game.intro.briefing.speaker)} :</h1><p class="panel-copy">${escape(game.intro.briefing.text)}</p><h2 class="speaker">${escape(game.intro.briefing.replySpeaker)} :</h2><div class="dialogue-frame">${button(game.intro.briefing.choice, 'briefing-choice')}</div>`;
     case 'final-dialogue': return dialogPanel(currentStep().speaker || 'Roxane', currentStep().choice);
     case 'quest-success': return `<p class="eyebrow">Indice retrouvé</p><h1 class="speaker">Esquie :</h1><p class="panel-copy">${escape(currentStep().successMessage)}</p><div class="dialogue-frame">${button('Continuer', 'success-continue')}</div>`;
+    case 'outro-pending': return '<p class="eyebrow">Dernière rencontre</p><h1>Tu es arrivée.</h1><p class="panel-copy">Esquie t’attend ici.</p><p class="panel-note">La dernière rencontre se prépare.</p>';
     case 'travel': {
       const dialogueReady = currentStep().dialogue && (isDevelopment || progress.arrived || !arrivalRequired());
-      return `<p class="eyebrow">${currentStep().kind === 'finale' ? 'Dernière destination' : dialogueReady ? 'Dialogue' : 'En chemin'}</p><h1>${escape(currentStep().title)}</h1>${dialogueReady ? '' : `<p class="panel-copy instruction">${escape(currentStep().instruction)}</p>`}
+      return `<p class="eyebrow">${['finale', 'outro'].includes(currentStep().kind) ? 'Dernière destination' : dialogueReady ? 'Dialogue' : 'En chemin'}</p><h1>${escape(currentStep().title)}</h1>${dialogueReady ? '' : `<p class="panel-copy instruction">${escape(currentStep().instruction)}</p>`}
         <div id="location-area"></div><div id="answer-area"></div>`;
     }
     case 'complete': return `<p class="eyebrow">${hasFinale() ? 'Épilogue' : 'À suivre'}</p><h1>${hasFinale() ? 'L’expédition s’achève.' : 'À suivre…'}</h1><p class="panel-copy">${hasFinale() ? 'Tu es arrivée au bout du voyage, Roxane.' : 'La prochaine rencontre t’attend.'}</p><div class="end-ornament" aria-hidden="true">✧</div>`;
@@ -115,10 +117,11 @@ function panelContent() {
 }
 
 function render() {
+  if (progress.phase === 'outro-pending' && currentStep().video) { transition('outro-video'); return; }
   stopTracking();
   const chapter = isIntro() ? 'Prologue' : progress.phase === 'complete' ? (hasFinale() ? 'Épilogue' : 'À suivre') : `Étape ${String(progress.stepIndex + 1).padStart(2, '0')}`;
   const title = isIntro() ? game.intro.title : currentStep()?.title || (hasFinale() ? 'Le bout du voyage' : 'La suite du voyage');
-  app.innerHTML = `${isDevelopment ? '<div class="preview-bar">Développement · GPS désactivé <a href="./">Mode normal</a></div><nav class="dev-links" aria-label="Raccourcis de test"><a href="?dev=1&preview=briefing">Après l’intro</a><a href="?dev=1&preview=step1">Étape 1</a><a href="?dev=1&preview=step2">Étape 2</a></nav>' : isPreview ? '<div class="preview-bar">Aperçu · aucune progression enregistrée <a href="./">Quitter</a></div>' : ''}
+  app.innerHTML = `${isDevelopment ? '<div class="preview-bar">Développement · GPS désactivé <a href="./">Mode normal</a></div><nav class="dev-links" aria-label="Raccourcis de test"><a href="?dev=1&preview=briefing">Après l’intro</a><a href="?dev=1&preview=step1">Étape 1</a><a href="?dev=1&preview=step2">Étape 2</a><a href="?dev=1&preview=step3">Étape 3</a><a href="?dev=1&preview=step4">Étape 4</a><a href="?dev=1&preview=assembly">Assemblage</a><a href="?dev=1&preview=arrival">Dernier trajet</a></nav>' : isPreview ? '<div class="preview-bar">Aperçu · aucune progression enregistrée <a href="./">Quitter</a></div>' : ''}
     <section class="scene" aria-label="Scène avec Esquie">
       <img class="scene-image ${isVideoPhase() ? 'video-backdrop' : ''}" src="${escape(imagePath())}" alt="${escape(isIntro() ? 'Esquie t’attend, son masque doré tourné vers toi.' : currentStep()?.imageAlt || 'Illustration de la prochaine rencontre.')}">
       <div class="scene-shade"></div>
@@ -227,13 +230,16 @@ function renderTravel() {
     return;
   }
   if (!isDevelopment && arrivalRequired() && !progress.arrived) {
-    area.innerHTML = '<p class="locked-note"><span aria-hidden="true">◇</span> Le dialogue se dévoilera à ton arrivée.</p>';
+    area.innerHTML = `<p class="locked-note"><span aria-hidden="true">◇</span> ${currentStep().kind === 'outro' ? 'Esquie t’attend à destination.' : 'Le dialogue se dévoilera à ton arrivée.'}</p>`;
     return;
   }
   if (currentStep().kind === 'finale') { transition('final-a', { arrived: true }); return; }
+  if (currentStep().kind === 'outro') { transition(currentStep().video ? 'outro-video' : 'outro-pending', { arrived: true }); return; }
   const dialogue = currentStep().dialogue;
-  const dialogueContent = dialogue ? `<div class="quest-dialogue"><h2 class="speaker">${escape(dialogue.speaker || 'Esquie')} :</h2><p class="panel-copy">${escape(dialogue.text)}</p>${dialogue.quote ? `<figure class="quest-quote"><blockquote>${escape(dialogue.quote)}</blockquote><figcaption>${escape(dialogue.attribution)}</figcaption></figure>` : ''}</div>` : '';
-  area.innerHTML = `${dialogueContent}<form id="answer-form" class="answer-form"><label for="answer" class="speaker">Roxane<span class="speaker-colon">:</span></label><div class="answer-frame"><label class="answer-prompt" for="answer">${escape(currentStep().prompt || 'Qu’as-tu découvert ?')}</label><input id="answer" name="answer" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" placeholder="Ta réponse…" required aria-describedby="answer-feedback quest-hint"><button class="answer-submit" aria-label="Valider ma réponse" type="submit">↗</button></div><p id="answer-feedback" class="feedback" role="status" aria-live="polite"></p><div id="hint-actions" class="hint-actions" hidden>${button('Oui', 'show-hint', true)}${button('Non', 'decline-hint', true)}</div><p id="quest-hint" class="feedback" role="status" aria-live="polite" hidden></p></form>`;
+  const dialogueContent = dialogue ? `<div class="quest-dialogue"><h2 class="speaker">${escape(dialogue.speaker || 'Esquie')} :</h2><p class="panel-copy instruction">${escape(dialogue.text)}</p>${dialogue.quote ? `<figure class="quest-quote"><blockquote>${escape(dialogue.quote)}</blockquote><figcaption>${escape(dialogue.attribution)}</figcaption></figure>` : ''}</div>` : '';
+  const puzzle = currentStep().puzzle;
+  const puzzleContent = puzzle ? `<div class="assembly-puzzle"><p class="panel-copy">${escape(puzzle.instruction)}</p><table aria-label="Les quatre indices à assembler"><thead><tr><th scope="col">Indice</th><th scope="col">Caractères</th></tr></thead><tbody>${puzzle.clues.map(clue => `<tr><td>${escape(clue.text)}</td><td>${escape(clue.range)}</td></tr>`).join('')}</tbody></table></div>` : '';
+  area.innerHTML = `${dialogueContent}${puzzleContent}<form id="answer-form" class="answer-form"><label for="answer" class="speaker">Roxane<span class="speaker-colon">:</span></label><div class="answer-frame"><label class="answer-prompt" for="answer">${escape(currentStep().prompt || 'Qu’as-tu découvert ?')}</label><input id="answer" name="answer" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" placeholder="Ta réponse…" required aria-describedby="answer-feedback quest-hint"><button class="answer-submit" aria-label="Valider ma réponse" type="submit">↗</button></div><p id="answer-feedback" class="feedback" role="status" aria-live="polite"></p><div id="hint-actions" class="hint-actions" hidden>${button('Oui', 'show-hint', true)}${button('Non', 'decline-hint', true)}</div><p id="quest-hint" class="feedback" role="status" aria-live="polite" hidden></p></form>`;
   document.querySelector('#answer-form').addEventListener('submit', event => {
     event.preventDefault();
     const input = document.querySelector('#answer');

@@ -6,7 +6,7 @@ import { game } from '../expedition/game-config.js';
 import * as core from '../expedition/game-core.js';
 
 // Exercise the actual app with deterministic GPS fixes and browser storage.
-function bootApp(savedProgress, { search = '', liveProgress } = {}) {
+function bootApp(savedProgress, { search = '', liveProgress, gameConfig = game } = {}) {
   const storageKey = `${game.id}${new URLSearchParams(search).get('dev') === '1' ? ':development' : ''}:progress`;
   const nodes = new Map();
   function makeNode(id) {
@@ -45,7 +45,7 @@ function bootApp(savedProgress, { search = '', liveProgress } = {}) {
   const document = { hidden: false, querySelector: selector => nodes.get(selector.slice(1)) ?? null,
     addEventListener(type, callback) { documentEvents.set(type, callback); } };
   const context = {
-    ...core, configuredGame: game, URLSearchParams, location: { search }, document,
+    ...core, configuredGame: gameConfig, URLSearchParams, location: { search }, document,
     window: { isSecureContext: true },
     localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
     navigator: { geolocation: {
@@ -257,9 +257,115 @@ test('step two dev shortcut offers the requested hint and success without GPS or
   app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
   assert.match(app.nodes.get('app').innerHTML, /Bravo ! Tu as trouvé le deuxième indice\. Continue avec ton compagnon\./);
   app.click('success-continue');
-  assert.match(app.nodes.get('app').innerHTML, /À suivre/);
+  assert.match(app.nodes.get('app').innerHTML, /Le troisième indice/);
   assert.equal(app.watches.length, 0);
   assert.equal(app.progress(), null);
+});
+
+test('new GPS quests lead to assembly before the final journey, with hints and saved arrival', () => {
+  const app = bootApp({ phase: 'travel', stepIndex: 2, arrived: false });
+  const submit = value => {
+    app.nodes.get('answer').value = value;
+    app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  };
+  const fix = (stepIndex, metres = 0, timestamp = Date.now()) => app.watches.at(-1).success({
+    timestamp, coords: { ...game.steps[stepIndex].destination, latitude: game.steps[stepIndex].destination.latitude + metres / 111194.9266, accuracy: 5 },
+  });
+  for (const [stepIndex, answer] of [[2, ' m é d i c i n a u x '], [3, 'S I O N']]) {
+    assert.equal(app.nodes.has('answer'), false);
+    assert.doesNotMatch(app.nodes.get('answer-area').innerHTML, /Moyen-âge|route 2/);
+    if (stepIndex === 2) app.click('locate');
+    fix(stepIndex, 11);
+    assert.equal(app.nodes.has('answer'), false);
+    fix(stepIndex, 9);
+    assert.ok(app.nodes.has('answer'));
+    submit('incorrect');
+    assert.equal(app.nodes.get('quest-hint').hidden, true);
+    app.click('show-hint');
+    assert.equal(app.nodes.get('quest-hint').textContent, game.steps[stepIndex].hint);
+    submit(answer);
+    assert.equal(app.progress().phase, 'quest-success');
+    assert.ok(core.isValidProgress(app.progress(), game.steps));
+    app.click('success-continue');
+  }
+  assert.deepEqual(app.progress(), { phase: 'travel', stepIndex: 4, arrived: false });
+  assert.ok(app.nodes.has('answer'));
+  assert.equal(app.nodes.has('locate'), false);
+  assert.match(app.nodes.get('answer-area').innerHTML, /MCMXXV/);
+  assert.match(app.nodes.get('answer-area').innerHTML, /\[4,5\[/);
+  assert.doesNotMatch(app.nodes.get('app').innerHTML, /tanière|Bourg Historique/);
+  const watchCount = app.watches.length;
+  assert.ok(bootApp(app.progress()).nodes.has('answer'));
+  submit('incorrect'); app.click('show-hint');
+  assert.equal(app.nodes.get('quest-hint').textContent, 'Esquie [3,5] donne qui');
+  submit(' E X P É D I T I O N ');
+  assert.equal(app.progress().phase, 'quest-success');
+  assert.match(app.nodes.get('app').innerHTML, /Ouiiiiiiiiii ! Tu as trouvé !/);
+  assert.equal(app.watches.length, watchCount);
+  app.click('success-continue');
+  assert.deepEqual(app.progress(), { phase: 'travel', stepIndex: 5, arrived: false });
+  assert.equal(app.nodes.has('answer'), false);
+  assert.match(app.nodes.get('app').innerHTML, /Bourg Historique/);
+  assert.equal(app.nodes.has('scene-video'), false);
+  fix(5, 11);
+  assert.equal(app.progress().phase, 'travel');
+  fix(5, 0, Date.now() - 31000);
+  assert.equal(app.progress().phase, 'travel');
+  fix(5, 9);
+  assert.deepEqual(app.progress(), { phase: 'outro-pending', stepIndex: 5, arrived: true });
+  assert.equal(app.nodes.has('scene-video'), false);
+  assert.match(app.nodes.get('app').innerHTML, /Tu es arrivée/);
+  assert.ok(core.isValidProgress(app.progress(), game.steps));
+  const reopened = bootApp(app.progress());
+  assert.equal(reopened.watches.length, 0);
+  assert.match(reopened.nodes.get('app').innerHTML, /Tu es arrivée/);
+});
+
+test('all new author previews bypass GPS without saving and the medicinal spelling is accepted', () => {
+  for (const preview of ['step3', 'step4', 'assembly', 'arrival']) {
+    const app = bootApp(undefined, { search: `?dev=1&preview=${preview}` });
+    assert.equal(app.watches.length, 0);
+    assert.equal(app.progress(), null);
+    assert.equal(app.nodes.has('answer'), preview !== 'arrival');
+    if (preview === 'arrival') assert.match(app.nodes.get('app').innerHTML, /Tu es arrivée/);
+  }
+  const app = bootApp({ phase: 'travel', stepIndex: 2, arrived: false }, { search: '?dev=1' });
+  app.nodes.get('answer').value = 'Simples';
+  app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  assert.equal(app.progress().phase, 'travel');
+  assert.ok(app.nodes.has('answer'));
+  app.nodes.get('answer').value = 'MÉDICINAL';
+  app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  assert.equal(app.progress().phase, 'quest-success');
+  assert.ok(core.isValidProgress(app.progress(), game.steps));
+});
+
+test('adding the closing video resumes a saved arrival and completes only after video end', () => {
+  const gameConfig = { ...game, steps: game.steps.map(step => step.kind === 'outro' ? { ...step, video: './scenes/closing-test.mp4' } : step) };
+  assert.deepEqual(core.validateGame(gameConfig), []);
+  for (const phase of ['travel', 'outro-pending', 'outro-video']) {
+    const app = bootApp({ phase, stepIndex: 5, arrived: true }, { gameConfig });
+    assert.equal(app.nodes.get('scene-video').src, './scenes/closing-test.mp4');
+    assert.equal(app.watches.length, 0);
+    app.nodes.get('scene-video').dispatch('ended');
+    assert.deepEqual(app.progress(), { phase: 'complete', stepIndex: 6, arrived: false });
+    assert.match(app.nodes.get('app').innerHTML, /L’expédition s’achève/);
+    assert.ok(core.isValidProgress(app.progress(), gameConfig.steps));
+  }
+});
+
+test('former two-clue completion resumes at step three and the new config validates ungated assembly only', () => {
+  const app = bootApp({ phase: 'complete', stepIndex: 2, arrived: false });
+  assert.match(app.nodes.get('app').innerHTML, /Le troisième indice/);
+  assert.equal(app.nodes.has('begin'), false);
+  assert.equal(app.nodes.has('answer'), false);
+  assert.equal(app.storage.get('pierres_perdues_v1'), '{"0":true,"1":true,"2":true,"3":true}');
+  const badGate = { ...game, steps: game.steps.map(step => step.puzzle ? { ...step, requireArrival: true } : step) };
+  assert.ok(core.validateGame(badGate).some(error => error.includes('coordonnées')));
+  const badVideo = { ...game, steps: game.steps.map(step => step.kind === 'outro' ? { ...step, video: 42 } : step) };
+  assert.ok(core.validateGame(badVideo).some(error => error.includes('conclusion')));
+  assert.equal(core.isValidProgress({ phase: 'outro-video', stepIndex: 5, arrived: true }, game.steps), false);
+  assert.equal(core.isValidProgress({ phase: 'outro-pending', stepIndex: 5, arrived: false }, game.steps), false);
 });
 
 test('the former end-of-content save resumes at the appended quest in normal and dev modes', () => {

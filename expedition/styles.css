@@ -84,6 +84,10 @@ h1 { margin: 0; font-family: var(--display); font-size: clamp(26px, 3.3vw, 39px)
 .quest-quote { margin: 0 0 26px; padding-left: 18px; border-left: 1px solid var(--gold); }
 .quest-quote blockquote { margin: 0; font-size: 19px; line-height: 1.5; color: #c9c8bb; }
 .quest-quote figcaption { margin-top: 12px; font-size: 15px; line-height: 1.4; color: var(--muted); }
+.assembly-puzzle table { width: 100%; border-collapse: collapse; margin: 0 0 26px; font-size: 21px; }
+.assembly-puzzle th { text-align: left; font-size: 14px; color: var(--muted); font-weight: 400; }
+.assembly-puzzle th, .assembly-puzzle td { padding: 12px 8px; border-bottom: 1px solid #b6aa8533; }
+.assembly-puzzle th:last-child, .assembly-puzzle td:last-child { text-align: right; color: var(--gold); white-space: nowrap; }
 .answer-frame { position: relative; border: 1px solid #c9c4ad99; border-right-color: #c9c4ad44; border-radius: 13px 0 0 13px; padding: 16px 64px 14px 20px; background: #050a0b55; }
 .answer-prompt { display: block; color: #bcbbae; font-size: 16px; margin-bottom: 7px; }
 .answer-frame:focus-within { border-color: var(--gold); }

@@ -34,6 +34,8 @@ export function isValidProgress(progress, steps) {
   if (progress.phase === 'travel') return true;
   if (progress.phase === 'quest-video') return step.kind === 'quest' && progress.arrived && Boolean(step.video);
   if (progress.phase === 'quest-success') return step.kind === 'quest' && progress.arrived && Boolean(step.successMessage);
+  if (progress.phase === 'outro-pending') return step.kind === 'outro' && progress.arrived;
+  if (progress.phase === 'outro-video') return step.kind === 'outro' && progress.arrived && Boolean(step.video);
   return ['final-a', 'final-dialogue', 'final-b'].includes(progress.phase) && step.kind === 'finale' && progress.arrived;
 }
 
@@ -48,11 +50,13 @@ export function validateGame(config) {
     ids.add(step.id);
     if (!step.title || !step.image || !step.instruction) errors.push(`Étape ${index + 1} : titre, image ou instruction manquants.`);
     const d = step.destination;
-    if (!validDestination(d)) errors.push(`Étape ${index + 1} : coordonnées ou rayon invalides.`);
+    if (!(step.kind === 'quest' && step.requireArrival === false && !d) && !validDestination(d)) errors.push(`Étape ${index + 1} : coordonnées ou rayon invalides.`);
     if (step.kind === 'quest') {
       if (!Array.isArray(step.answers) || !step.answers.length || step.answers.some(a => typeof a !== 'string' || !normalizeAnswer(a)) || (!step.video && !step.successMessage) || !step.hint) errors.push(`Étape ${index + 1} : réponses, message de réussite ou indice manquants.`);
     } else if (step.kind === 'finale') {
       if (index !== config.steps.length - 1 || !step.firstVideo || !step.secondVideo || !step.choice) errors.push('Le final doit être la dernière étape et contenir deux vidéos et un dialogue.');
+    } else if (step.kind === 'outro') {
+      if (index !== config.steps.length - 1 || (step.video != null && (typeof step.video !== 'string' || !step.video.trim()))) errors.push('La conclusion doit être la dernière étape et sa vidéo doit être un chemin valide ou null.');
     } else errors.push(`Étape ${index + 1} : type inconnu.`);
   }
   return errors;
