@@ -1,9 +1,12 @@
-import { game as configuredGame } from './game-config.js?v=3';
-import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=3';
+import { game as configuredGame } from './game-config.js?v=4';
+import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=4';
 
 const app = document.querySelector('#app');
-const preview = new URLSearchParams(location.search).get('preview');
-const isPreview = ['dialogue', 'quest', 'finale'].includes(preview);
+const params = new URLSearchParams(location.search);
+const isDevelopment = params.get('dev') === '1';
+const preview = params.get('preview');
+const usesSample = ['dialogue', 'quest', 'finale'].includes(preview);
+const isPreview = usesSample || ['briefing', 'step1'].includes(preview);
 const sampleStep = {
   id: 'apercu', kind: preview === 'finale' ? 'finale' : 'quest',
   title: preview === 'finale' ? 'Le dernier rendez-vous' : 'La première piste',
@@ -14,8 +17,8 @@ const sampleStep = {
   firstVideo: './scenes/intro_a.mp4', secondVideo: './scenes/intro_b.mp4',
   speaker: 'Roxane', choice: 'Je suis prête !',
 };
-const game = isPreview ? { ...configuredGame, steps: preview === 'dialogue' ? [] : [sampleStep] } : configuredGame;
-const storageKey = `${game.id}:progress`;
+const game = usesSample ? { ...configuredGame, steps: preview === 'dialogue' ? [] : [sampleStep] } : configuredGame;
+const storageKey = `${game.id}${isDevelopment ? ':development' : ''}:progress`;
 let storageAvailable = true;
 let progress = restoreProgress();
 let replaying = false;
@@ -32,7 +35,7 @@ function escape(text) {
 }
 
 function restoreProgress() {
-  if (isPreview) return { phase: preview === 'dialogue' ? 'intro-dialogue' : 'travel', stepIndex: 0, arrived: false };
+  if (isPreview) return { phase: preview === 'dialogue' ? 'intro-dialogue' : preview === 'briefing' ? 'intro-briefing' : 'travel', stepIndex: 0, arrived: false };
   let raw;
   try {
     raw = localStorage.getItem(storageKey);
@@ -57,15 +60,17 @@ function transition(phase, updates = {}) {
 }
 
 function nextStep() {
-  const index = progress.phase === 'intro-b' ? 0 : progress.stepIndex + 1;
+  const index = ['intro-b', 'intro-briefing'].includes(progress.phase) ? 0 : progress.stepIndex + 1;
   distance = accuracy = null;
   locationMessage = 'Laisse Esquie te guider.';
   transition(index < game.steps.length ? 'travel' : 'complete', { stepIndex: index, arrived: false });
 }
 
 function currentStep() { return game.steps[progress.stepIndex]; }
-function isStarting() { return progress.phase === 'welcome' && Boolean(game.start); }
-function needsLocation() { return isStarting() || progress.phase === 'travel'; }
+function isStarting() { return !isDevelopment && progress.phase === 'welcome' && Boolean(game.start); }
+function needsLocation() { return !isDevelopment && (isStarting() || (progress.phase === 'travel' && Boolean(currentStep()?.destination))); }
+function arrivalRequired() { return isStarting() || currentStep()?.requireArrival !== false; }
+function hasFinale() { return game.steps.at(-1)?.kind === 'finale'; }
 function isVideoPhase() { return ['intro-a', 'intro-b', 'quest-video', 'final-a', 'final-b'].includes(progress.phase) || replaying; }
 function isIntro() { return progress.phase.startsWith('intro') || progress.phase === 'welcome' || !game.steps.length; }
 function imagePath() { return isIntro() ? game.intro.image : currentStep()?.image || game.steps.at(-1)?.image || game.intro.image; }
@@ -91,20 +96,22 @@ function panelContent() {
     <div class="video-track" aria-hidden="true"><span id="video-progress"></span></div>
     <p id="media-status" class="panel-note" role="status">La suite apparaîtra à la fin de la vidéo.</p>`;
   switch (progress.phase) {
-    case 'welcome': return `<p class="eyebrow">Prologue</p><h1>Une rencontre<br>avec Esquie</h1><p class="panel-copy">${game.start ? 'Retrouve Esquie au point de départ.' : 'Roxane, ton expédition commence ici.'}</p>${game.start ? '<div id="location-area"></div><div id="start-area"></div>' : `<div class="dialogue-frame">${button('Commencer l’expédition', 'begin')}</div><p class="panel-note">Installe-toi un instant et active le son.</p>`}`;
+    case 'welcome': return `<p class="eyebrow">Prologue</p><h1>Une rencontre<br>avec Esquie</h1><p class="panel-copy">${isStarting() ? 'Retrouve Esquie au point de départ.' : 'Roxane, ton expédition commence ici.'}</p>${isStarting() ? '<div id="location-area"></div><div id="start-area"></div>' : `<div class="dialogue-frame">${button('Commencer l’expédition', 'begin')}</div><p class="panel-note">Installe-toi un instant et active le son.</p>`}`;
     case 'intro-dialogue': return dialogPanel(game.intro.speaker, game.intro.choice);
+    case 'intro-briefing': return `<p class="eyebrow">Dialogue</p><h1 class="speaker">${escape(game.intro.briefing.speaker)} :</h1><p class="panel-copy">${escape(game.intro.briefing.text)}</p><h2 class="speaker">${escape(game.intro.briefing.replySpeaker)} :</h2><div class="dialogue-frame">${button(game.intro.briefing.choice, 'briefing-choice')}</div>`;
     case 'final-dialogue': return dialogPanel(currentStep().speaker || 'Roxane', currentStep().choice);
+    case 'quest-success': return `<p class="eyebrow">Indice retrouvé</p><h1 class="speaker">Esquie :</h1><p class="panel-copy">${escape(currentStep().successMessage)}</p><div class="dialogue-frame">${button('Continuer', 'success-continue')}</div>`;
     case 'travel': return `<p class="eyebrow">${currentStep().kind === 'finale' ? 'Dernière destination' : 'En chemin'}</p><h1>${escape(currentStep().title)}</h1><p class="panel-copy instruction">${escape(currentStep().instruction)}</p>
       <div id="location-area"></div><div id="answer-area"></div>`;
-    case 'complete': return `<p class="eyebrow">${game.steps.length ? 'Épilogue' : 'Prologue terminé'}</p><h1>${game.steps.length ? 'L’expédition s’achève.' : 'À suivre…'}</h1><p class="panel-copy">${game.steps.length ? 'Tu es arrivée au bout du voyage, Roxane.' : 'La prochaine rencontre t’attend.'}</p><div class="end-ornament" aria-hidden="true">✧</div>`;
+    case 'complete': return `<p class="eyebrow">${hasFinale() ? 'Épilogue' : 'À suivre'}</p><h1>${hasFinale() ? 'L’expédition s’achève.' : 'À suivre…'}</h1><p class="panel-copy">${hasFinale() ? 'Tu es arrivée au bout du voyage, Roxane.' : 'La prochaine rencontre t’attend.'}</p><div class="end-ornament" aria-hidden="true">✧</div>`;
   }
 }
 
 function render() {
   stopTracking();
-  const chapter = isIntro() ? 'Prologue' : progress.phase === 'complete' ? 'Épilogue' : `Étape ${String(progress.stepIndex + 1).padStart(2, '0')}`;
-  const title = isIntro() ? game.intro.title : currentStep()?.title || 'Le bout du voyage';
-  app.innerHTML = `${isPreview ? '<div class="preview-bar">Aperçu · aucune progression enregistrée <a href="./">Quitter</a></div>' : ''}
+  const chapter = isIntro() ? 'Prologue' : progress.phase === 'complete' ? (hasFinale() ? 'Épilogue' : 'À suivre') : `Étape ${String(progress.stepIndex + 1).padStart(2, '0')}`;
+  const title = isIntro() ? game.intro.title : currentStep()?.title || (hasFinale() ? 'Le bout du voyage' : 'La suite du voyage');
+  app.innerHTML = `${isDevelopment ? '<div class="preview-bar">Développement · GPS désactivé <a href="./">Mode normal</a></div><nav class="dev-links" aria-label="Raccourcis de test"><a href="?dev=1&preview=briefing">Après l’intro</a><a href="?dev=1&preview=step1">Étape 1</a></nav>' : isPreview ? '<div class="preview-bar">Aperçu · aucune progression enregistrée <a href="./">Quitter</a></div>' : ''}
     <section class="scene" aria-label="Scène avec Esquie">
       <img class="scene-image ${isVideoPhase() ? 'video-backdrop' : ''}" src="${escape(imagePath())}" alt="${escape(isIntro() ? 'Esquie t’attend, son masque doré tourné vers toi.' : currentStep()?.imageAlt || 'Illustration de la prochaine rencontre.')}">
       <div class="scene-shade"></div>
@@ -118,6 +125,8 @@ function render() {
       ${!storageAvailable && !isPreview ? '<p class="storage-note" role="status">La sauvegarde est indisponible. Garde cette page ouverte pendant le voyage.</p>' : ''}
     </section>`;
   document.querySelector('#dialogue-choice')?.addEventListener('click', () => transition(progress.phase === 'intro-dialogue' ? 'intro-b' : 'final-b'));
+  document.querySelector('#briefing-choice')?.addEventListener('click', nextStep);
+  document.querySelector('#success-continue')?.addEventListener('click', () => currentStep().video ? transition('quest-video') : nextStep());
   document.querySelector('#replay')?.addEventListener('click', () => { replaying = true; render(); });
   document.querySelector('#sound').addEventListener('click', () => {
     muted = !muted;
@@ -144,10 +153,10 @@ function render() {
   if (isStarting()) renderWelcome();
   if (progress.phase === 'travel') renderTravel();
   document.querySelector('#begin')?.addEventListener('click', () => {
-    if (game.start && !progress.arrived) return;
+    if (game.start && !isDevelopment && !progress.arrived) return;
     transition('intro-a', { arrived: false });
   });
-  if (needsLocation() && trackingRequested && !isPreview && !progress.arrived) startTracking();
+  if (needsLocation() && trackingRequested && !isPreview && (!progress.arrived || !arrivalRequired())) startTracking();
 }
 
 function soundIcon() {
@@ -189,6 +198,7 @@ function attachVideo() {
     if (replaying) { replaying = false; render(); return; }
     if (progress.phase === 'intro-a') transition('intro-dialogue');
     else if (progress.phase === 'final-a') transition('final-dialogue');
+    else if (progress.phase === 'intro-b' && game.intro.briefing) transition('intro-briefing');
     else nextStep();
   });
   play();
@@ -202,22 +212,40 @@ function renderWelcome() {
 }
 
 function renderTravel() {
-  updateLocationUI();
+  if (!isDevelopment && currentStep().destination) updateLocationUI();
   const area = document.querySelector('#answer-area');
-  if (!progress.arrived) {
+  if (!isDevelopment && arrivalRequired() && !currentStep().destination) {
+    document.querySelector('#location-area').innerHTML = '<p class="panel-note">La prochaine rencontre se prépare.</p>';
+    area.innerHTML = '<p class="locked-note">Le point de rendez-vous sera bientôt dévoilé.</p>';
+    return;
+  }
+  if (!isDevelopment && arrivalRequired() && !progress.arrived) {
     area.innerHTML = '<p class="locked-note"><span aria-hidden="true">◇</span> Le dialogue se dévoilera à ton arrivée.</p>';
     return;
   }
-  if (currentStep().kind === 'finale') { transition('final-a'); return; }
-  area.innerHTML = `<form id="answer-form" class="answer-form"><label for="answer" class="speaker">Roxane<span class="speaker-colon">:</span></label><div class="answer-frame"><label class="answer-prompt" for="answer">${escape(currentStep().prompt || 'Qu’as-tu découvert ?')}</label><input id="answer" name="answer" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" placeholder="Ta réponse…" required aria-describedby="answer-feedback"><button class="answer-submit" aria-label="Valider ma réponse" type="submit">↗</button></div><p id="answer-feedback" class="feedback" role="status" aria-live="polite"></p></form>`;
+  if (currentStep().kind === 'finale') { transition('final-a', { arrived: true }); return; }
+  area.innerHTML = `<form id="answer-form" class="answer-form"><label for="answer" class="speaker">Roxane<span class="speaker-colon">:</span></label><div class="answer-frame"><label class="answer-prompt" for="answer">${escape(currentStep().prompt || 'Qu’as-tu découvert ?')}</label><input id="answer" name="answer" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" placeholder="Ta réponse…" required aria-describedby="answer-feedback quest-hint"><button class="answer-submit" aria-label="Valider ma réponse" type="submit">↗</button></div><p id="answer-feedback" class="feedback" role="status" aria-live="polite"></p><div id="hint-actions" class="hint-actions" hidden>${button('Oui', 'show-hint', true)}${button('Non', 'decline-hint', true)}</div><p id="quest-hint" class="feedback" role="status" aria-live="polite" hidden></p></form>`;
   document.querySelector('#answer-form').addEventListener('submit', event => {
     event.preventDefault();
     const input = document.querySelector('#answer');
-    if (acceptsAnswer(input.value, currentStep().answers)) transition('quest-video');
+    if (acceptsAnswer(input.value, currentStep().answers)) transition(currentStep().successMessage ? 'quest-success' : 'quest-video', { arrived: true });
     else {
-      document.querySelector('#answer-feedback').textContent = `Pas tout à fait… ${currentStep().hint}`;
+      const requestHint = currentStep().hintMode === 'on-request';
+      document.querySelector('#answer-feedback').textContent = requestHint ? currentStep().errorMessage || 'Mauvaise réponse, tu veux un indice ?' : `Pas tout à fait… ${currentStep().hint}`;
+      document.querySelector('#hint-actions').hidden = !requestHint;
+      document.querySelector('#quest-hint').hidden = true;
       input.setAttribute('aria-invalid', 'true');
     }
+  });
+  document.querySelector('#show-hint').addEventListener('click', () => {
+    document.querySelector('#hint-actions').hidden = true;
+    const hint = document.querySelector('#quest-hint');
+    hint.textContent = currentStep().hint; hint.hidden = false;
+  });
+  document.querySelector('#decline-hint').addEventListener('click', () => {
+    document.querySelector('#hint-actions').hidden = true;
+    document.querySelector('#answer-feedback').textContent = '';
+    document.querySelector('#answer').focus();
   });
   document.querySelector('#answer').addEventListener('input', event => event.target.removeAttribute('aria-invalid'));
 }
@@ -226,8 +254,9 @@ function updateLocationUI() {
   const area = document.querySelector('#location-area');
   if (!area) return;
   const proximity = distance === null ? 'Position en attente' : distance < 1000 ? `À ${Math.round(distance)} m` : `À ${(distance / 1000).toFixed(1).replace('.', ',')} km`;
-  area.innerHTML = `<div class="distance-hud"><span class="hud-diamond" aria-hidden="true">✧</span><div><strong>${progress.arrived ? 'Tu es arrivée' : proximity}</strong><p>${progress.arrived ? (isStarting() ? 'Esquie t’attend ici.' : 'La piste est à portée de main.') : escape(locationMessage)}</p>${accuracy !== null && !progress.arrived ? `<small>Précision GPS : ± ${Math.round(accuracy)} m</small>` : ''}</div></div>
-    ${!progress.arrived && (isPreview || watchId === null) ? button(isPreview ? 'Simuler l’arrivée' : 'Activer la localisation', 'locate', true) : ''}`;
+  const reached = progress.arrived && arrivalRequired();
+  area.innerHTML = `<div class="distance-hud"><span class="hud-diamond" aria-hidden="true">✧</span><div><strong>${reached ? 'Tu es arrivée' : proximity}</strong><p>${reached ? (isStarting() ? 'Esquie t’attend ici.' : 'La piste est à portée de main.') : escape(locationMessage)}</p>${accuracy !== null && !reached ? `<small>Précision GPS : ± ${Math.round(accuracy)} m</small>` : ''}</div></div>
+    ${!reached && (isPreview || watchId === null) ? button(isPreview ? 'Simuler l’arrivée' : 'Activer la localisation', 'locate', true) : ''}`;
   document.querySelector('#locate')?.addEventListener('click', () => {
     if (isPreview) { transition(progress.phase, { arrived: true }); return; }
     trackingRequested = true; startTracking();
@@ -235,20 +264,20 @@ function updateLocationUI() {
 }
 
 function startTracking() {
-  if (watchId !== null || !needsLocation() || progress.arrived || document.hidden) return;
+  if (watchId !== null || !needsLocation() || (progress.arrived && arrivalRequired()) || document.hidden) return;
   if (!navigator.geolocation || !window.isSecureContext) {
     locationMessage = 'La localisation est indisponible dans ce navigateur.'; updateLocationUI(); return;
   }
   locationMessage = 'À la recherche de ta position…';
   const generation = trackingGeneration;
   watchId = navigator.geolocation.watchPosition(position => {
-    if (generation !== trackingGeneration || !needsLocation() || progress.arrived) return;
+    if (generation !== trackingGeneration || !needsLocation() || (progress.arrived && arrivalRequired())) return;
     if (Date.now() - position.timestamp > 30000) { locationMessage = 'Ta position est ancienne. Recherche en cours…'; updateLocationUI(); return; }
     const destination = isStarting() ? game.start : currentStep().destination;
     distance = distanceMeters(position.coords, destination);
     accuracy = position.coords.accuracy;
-    locationMessage = isStarting() ? 'Du point de départ' : 'De ta prochaine rencontre';
-    if (isAtDestination(position.coords, destination)) transition(progress.phase, { arrived: true });
+    locationMessage = isStarting() ? 'Du point de départ' : currentStep().distanceLabel || 'De ta prochaine rencontre';
+    if (arrivalRequired() && isAtDestination(position.coords, destination)) transition(progress.phase, { arrived: true });
     else updateLocationUI();
   }, error => {
     if (generation !== trackingGeneration) return;
@@ -267,7 +296,7 @@ function stopTracking() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { stopTracking(); document.querySelector('#scene-video')?.pause(); }
-  else if (trackingRequested && !isPreview && needsLocation() && !progress.arrived) startTracking();
+  else if (trackingRequested && !isPreview && needsLocation() && (!progress.arrived || !arrivalRequired())) startTracking();
 });
 
 const configErrors = validateGame(game);

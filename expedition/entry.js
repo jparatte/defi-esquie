@@ -5,5 +5,5 @@ let allowed = false;
 try { allowed = hasAccess(sessionStorage, continuation.passwordHash); }
 catch { /* Browser storage is unavailable: keep the expedition locked. */ }
 
-if (allowed) await import('./app.js?v=3');
-else location.replace('../');
+if (allowed) await import('./app.js?v=4');
+else location.replace(new URLSearchParams(location.search).get('dev') === '1' ? '../?dev=1' : '../');

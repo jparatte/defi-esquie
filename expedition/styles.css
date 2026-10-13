@@ -88,6 +88,9 @@ h1 { margin: 0; font-family: var(--display); font-size: clamp(26px, 3.3vw, 39px)
 #answer[aria-invalid=true] { border-bottom-color: #d39e87; }
 .answer-submit { position: absolute; right: 10px; bottom: 12px; border: 1px solid #c9c4ad66; border-radius: 50%; height: 44px; width: 44px; color: var(--gold); background: transparent; font-size: 26px; }
 .feedback { color: #dbcaa5; line-height: 1.5; font-size: 18px; margin: 12px 0 0; }
+.hint-actions { display: flex; gap: 30px; margin-top: 8px; }
+.dev-links { display: flex; gap: 24px; padding: 10px 20px; background: #222c25; font: 13px system-ui; }
+.dev-links a { color: #e2d5b6; }
 .end-ornament { font-size: 60px; color: var(--gold); opacity: .75; padding-top: 8px; }
 .preview-bar { padding: 12px 20px; background: #d7c59d; color: #18211d; font: 13px system-ui; display: flex; justify-content: space-between; gap: 10px; }
 .preview-bar a { color: inherit; }

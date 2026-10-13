@@ -30,7 +30,7 @@ form.addEventListener('submit', async event => {
       feedback.textContent = 'Ton navigateur ne peut pas garder l’accès ouvert. Autorise le stockage du site, puis réessaie.';
       return;
     }
-    location.assign('./expedition/');
+    location.assign(new URLSearchParams(location.search).get('dev') === '1' ? './expedition/?dev=1' : './expedition/');
   } catch {
     feedback.textContent = 'Impossible d’ouvrir le défi pour le moment. Réessaie depuis l’adresse HTTPS du site.';
   } finally { submit.disabled = false; }

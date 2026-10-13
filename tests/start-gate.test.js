@@ -6,13 +6,14 @@ import { game } from '../expedition/game-config.js';
 import * as core from '../expedition/game-core.js';
 
 // Exercise the actual app with deterministic GPS fixes and browser storage.
-function bootApp(savedProgress) {
+function bootApp(savedProgress, { search = '', liveProgress } = {}) {
+  const storageKey = `${game.id}${new URLSearchParams(search).get('dev') === '1' ? ':development' : ''}:progress`;
   const nodes = new Map();
   function makeNode(id) {
     const listeners = new Map();
     let html = '';
     let childIds = [];
-    const node = { id, style: {}, textContent: '', isConnected: true, muted: false,
+    const node = { id, style: {}, textContent: '', value: '', hidden: false, isConnected: true, muted: false,
       addEventListener(type, callback) { listeners.set(type, callback); },
       setAttribute() {}, removeAttribute() {}, focus() {}, pause() {}, play: async () => {},
       dispatch(type, event = {}) { return listeners.get(type)?.(event); },
@@ -21,8 +22,11 @@ function bootApp(savedProgress) {
         if (id === 'app') nodes.clear();
         else childIds.forEach(child => nodes.delete(child));
         html = value;
-        childIds = [...value.matchAll(/id="([^"]+)"/g)].map(match => match[1]);
-        childIds.forEach(child => nodes.set(child, makeNode(child)));
+        const children = [...value.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)];
+        childIds = children.map(match => match[1]);
+        children.forEach(match => {
+          const child = makeNode(match[1]); child.hidden = /\bhidden\b/.test(match[0]); nodes.set(match[1], child);
+        });
         if (id === 'app') nodes.set('app', node);
       },
     };
@@ -33,14 +37,15 @@ function bootApp(savedProgress) {
     ['pierres_perdues_v1', '{"0":true,"1":true,"2":true,"3":true}'],
     ['roxane-expedition-v1:progress', '{"phase":"complete","stepIndex":0,"arrived":false}'],
   ]);
-  if (savedProgress) storage.set(`${game.id}:progress`, JSON.stringify(savedProgress));
+  if (liveProgress) storage.set(`${game.id}:progress`, JSON.stringify(liveProgress));
+  if (savedProgress) storage.set(storageKey, JSON.stringify(savedProgress));
   const watches = [];
   const cleared = [];
   const documentEvents = new Map();
   const document = { hidden: false, querySelector: selector => nodes.get(selector.slice(1)) ?? null,
     addEventListener(type, callback) { documentEvents.set(type, callback); } };
   const context = {
-    ...core, configuredGame: game, URLSearchParams, location: { search: '' }, document,
+    ...core, configuredGame: game, URLSearchParams, location: { search }, document,
     window: { isSecureContext: true },
     localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
     navigator: { geolocation: {
@@ -52,7 +57,7 @@ function bootApp(savedProgress) {
   vm.runInNewContext(script, context);
   return { nodes, storage, watches, cleared, document, documentEvents,
     click: id => { assert.ok(nodes.has(id), `Expected button ${id}`); return nodes.get(id).dispatch('click'); },
-    progress: () => JSON.parse(storage.get(`${game.id}:progress`) ?? 'null'),
+    progress: () => JSON.parse(storage.get(storageKey) ?? 'null'),
     fix: (metres, timestamp = Date.now(), watchIndex = watches.length - 1) => watches[watchIndex].success({
       timestamp, coords: { latitude: game.start.latitude + metres / 111194.9266,
         longitude: game.start.longitude, accuracy: 7 },
@@ -127,4 +132,81 @@ test('backgrounding stops GPS, foregrounding restarts it, and old callbacks cann
   app.document.hidden = false; app.documentEvents.get('visibilitychange')();
   assert.equal(app.watches.length, 2);
   app.fix(0); assert.ok(app.nodes.has('begin'));
+});
+
+test('development mode plays the complete intro and new dialogue without GPS or live save changes', () => {
+  const liveProgress = { phase: 'welcome', stepIndex: 0, arrived: false };
+  const app = bootApp(undefined, { search: '?dev=1', liveProgress });
+  assert.ok(app.nodes.has('begin'));
+  assert.equal(app.nodes.has('locate'), false);
+  app.click('begin');
+  app.nodes.get('scene-video').dispatch('ended');
+  assert.equal(app.progress().phase, 'intro-dialogue');
+  app.click('dialogue-choice');
+  app.nodes.get('scene-video').dispatch('ended');
+  assert.equal(app.progress().phase, 'intro-briefing');
+  assert.match(app.nodes.get('app').innerHTML, /quatre indices/);
+  assert.match(app.nodes.get('app').innerHTML, /C&#39;est parti !/);
+  app.click('briefing-choice');
+  assert.equal(app.progress().phase, 'travel');
+  assert.ok(app.nodes.has('answer'));
+  assert.equal(app.watches.length, 0);
+  assert.equal(app.storage.get(`${game.id}:progress`), JSON.stringify(liveProgress));
+});
+
+test('step one offers the hint only on request and accepts roman numerals with case and spaces ignored', () => {
+  const app = bootApp({ phase: 'travel', stepIndex: 0, arrived: false }, { search: '?dev=1' });
+  const submit = value => {
+    app.nodes.get('answer').value = value;
+    app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  };
+  assert.equal(app.nodes.get('hint-actions').hidden, true);
+  assert.equal(app.nodes.get('quest-hint').hidden, true);
+  submit('1925');
+  assert.equal(app.nodes.get('answer-feedback').textContent, 'Mauvaise réponse, tu veux un indice ?');
+  assert.equal(app.nodes.get('hint-actions').hidden, false);
+  assert.equal(app.nodes.get('quest-hint').hidden, true);
+  app.click('decline-hint');
+  assert.equal(app.nodes.get('hint-actions').hidden, true);
+  assert.equal(app.nodes.get('quest-hint').hidden, true);
+  submit('MCMXXIV');
+  app.click('show-hint');
+  assert.equal(app.nodes.get('quest-hint').textContent, '1900 vaut MCM');
+  assert.equal(app.nodes.get('quest-hint').hidden, false);
+  submit(' m c m xx v ');
+  assert.equal(app.progress().phase, 'quest-success');
+  assert.equal(app.nodes.has('scene-video'), false);
+  assert.match(app.nodes.get('app').innerHTML, /Bravo ! Tu as trouvé le premier indice\./);
+  assert.ok(core.isValidProgress(app.progress(), game.steps));
+  const reopened = bootApp(app.progress(), { search: '?dev=1' });
+  assert.ok(reopened.nodes.has('success-continue'));
+  app.click('success-continue');
+  assert.equal(app.progress().phase, 'complete');
+  assert.match(app.nodes.get('app').innerHTML, /À suivre/);
+});
+
+test('normal step one permits answers immediately and shows optional distance without an arrival gate', () => {
+  const app = bootApp({ phase: 'travel', stepIndex: 0, arrived: false });
+  assert.ok(app.nodes.has('answer'));
+  assert.equal(app.watches.length, 0);
+  app.click('locate');
+  app.fix(1000);
+  assert.ok(app.nodes.has('answer'));
+  app.watches[0].success({ timestamp: Date.now(), coords: { ...game.steps[0].destination, accuracy: 5 } });
+  assert.match(app.nodes.get('location-area').innerHTML, /À 0 m/);
+  assert.match(app.nodes.get('location-area').innerHTML, /De la statue/);
+  assert.equal(app.progress().phase, 'travel');
+  assert.equal(app.progress().arrived, false);
+  assert.deepEqual(app.cleared, []);
+});
+
+test('author shortcuts open the real briefing and real first quest without changing saved progress', () => {
+  const app = bootApp(undefined, { search: '?dev=1&preview=briefing' });
+  assert.ok(app.nodes.has('briefing-choice'));
+  app.click('briefing-choice');
+  assert.match(app.nodes.get('answer-area').innerHTML, /chiffres romains/);
+  app.nodes.get('answer').value = 'MCMXXV';
+  app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  assert.equal(app.progress(), null);
+  assert.equal(app.watches.length, 0);
 });

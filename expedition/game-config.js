@@ -15,8 +15,34 @@ export const game = {
     secondVideo: './scenes/intro_b.mp4',
     speaker: 'Roxane',
     choice: 'Mais je dois chercher quoi exactement ?',
+    briefing: {
+      speaker: 'Esquie',
+      text: "Afin de trouver ce que tu cherches, j'ai laissé quatre indices que tu devras retrouver et assembler.",
+      replySpeaker: 'Roxane',
+      choice: "C'est parti !",
+    },
   },
-  // Add your real steps here. See README.md for complete quest/finale examples.
-  // Until then, the supplied intro ends with an “À suivre” screen.
-  steps: [],
+  steps: [
+    {
+      id: 'statue-prisonnier',
+      kind: 'quest',
+      title: 'Le premier indice',
+      image: './scenes/intro_still.png',
+      imageAlt: 'Esquie te guide vers le premier indice.',
+      instruction: "Proche de toi, se trouve la statue d'un prisonnier, entouré d'un parterre de fleurs.",
+      prompt: "De quand date l'arrivée de la statue dans la ville (en chiffres romains) ?",
+      answers: ['MCMXXV'],
+      successMessage: 'Bravo ! Tu as trouvé le premier indice.',
+      errorMessage: 'Mauvaise réponse, tu veux un indice ?',
+      hintMode: 'on-request',
+      hint: '1900 vaut MCM',
+      destination: {
+        latitude: 46.39685537641124,
+        longitude: 6.923038051324952,
+        radiusMeters: 10,
+      },
+      requireArrival: false,
+      distanceLabel: 'De la statue',
+    },
+  ],
 };

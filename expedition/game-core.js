@@ -26,12 +26,13 @@ export function initialProgress() {
 
 export function isValidProgress(progress, steps) {
   if (!progress || !Number.isInteger(progress.stepIndex) || typeof progress.arrived !== 'boolean') return false;
-  if (['welcome', 'intro-a', 'intro-dialogue', 'intro-b'].includes(progress.phase)) return progress.stepIndex === 0;
+  if (['welcome', 'intro-a', 'intro-dialogue', 'intro-b', 'intro-briefing'].includes(progress.phase)) return progress.stepIndex === 0;
   if (progress.phase === 'complete') return progress.stepIndex === steps.length;
   const step = steps[progress.stepIndex];
   if (!step) return false;
   if (progress.phase === 'travel') return true;
-  if (progress.phase === 'quest-video') return step.kind === 'quest' && progress.arrived;
+  if (progress.phase === 'quest-video') return step.kind === 'quest' && progress.arrived && Boolean(step.video);
+  if (progress.phase === 'quest-success') return step.kind === 'quest' && progress.arrived && Boolean(step.successMessage);
   return ['final-a', 'final-dialogue', 'final-b'].includes(progress.phase) && step.kind === 'finale' && progress.arrived;
 }
 
@@ -48,7 +49,7 @@ export function validateGame(config) {
     const d = step.destination;
     if (!validDestination(d)) errors.push(`Étape ${index + 1} : coordonnées ou rayon invalides.`);
     if (step.kind === 'quest') {
-      if (!Array.isArray(step.answers) || !step.answers.length || step.answers.some(a => typeof a !== 'string' || !normalizeAnswer(a)) || !step.video || !step.hint) errors.push(`Étape ${index + 1} : réponses, vidéo ou indice manquants.`);
+      if (!Array.isArray(step.answers) || !step.answers.length || step.answers.some(a => typeof a !== 'string' || !normalizeAnswer(a)) || (!step.video && !step.successMessage) || !step.hint) errors.push(`Étape ${index + 1} : réponses, message de réussite ou indice manquants.`);
     } else if (step.kind === 'finale') {
       if (index !== config.steps.length - 1 || !step.firstVideo || !step.secondVideo || !step.choice) errors.push('Le final doit être la dernière étape et contenir deux vidéos et un dialogue.');
     } else errors.push(`Étape ${index + 1} : type inconnu.`);
