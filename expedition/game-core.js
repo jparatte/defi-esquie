@@ -1,10 +1,11 @@
-export function normalizeAnswer(value) {
-  return String(value).normalize('NFD').replace(/\p{M}/gu, '').replace(/\s/gu, '').toLocaleLowerCase('fr');
+export function normalizeAnswer(value, { ignorePunctuation = false } = {}) {
+  const normalized = String(value).normalize('NFD').replace(/\p{M}/gu, '').replace(/\s/gu, '').toLocaleLowerCase('fr');
+  return ignorePunctuation ? normalized.replace(/\p{P}/gu, '') : normalized;
 }
 
-export function acceptsAnswer(value, answers) {
-  const normalized = normalizeAnswer(value);
-  return normalized.length > 0 && answers.some(answer => normalizeAnswer(answer) === normalized);
+export function acceptsAnswer(value, answers, options) {
+  const normalized = normalizeAnswer(value, options);
+  return normalized.length > 0 && answers.some(answer => normalizeAnswer(answer, options) === normalized);
 }
 
 export function distanceMeters(from, to) {

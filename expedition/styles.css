@@ -80,6 +80,10 @@ h1 { margin: 0; font-family: var(--display); font-size: clamp(26px, 3.3vw, 39px)
 .locked-note { font-size: 16px; color: var(--muted); line-height: 1.4; margin: 20px 0 4px; }
 .locked-note span { color: var(--gold); padding-right: 5px; }
 .answer-form { margin-top: 25px; }
+.quest-dialogue { margin-top: 28px; }
+.quest-quote { margin: 0 0 26px; padding-left: 18px; border-left: 1px solid var(--gold); }
+.quest-quote blockquote { margin: 0; font-size: 19px; line-height: 1.5; color: #c9c8bb; }
+.quest-quote figcaption { margin-top: 12px; font-size: 15px; line-height: 1.4; color: var(--muted); }
 .answer-frame { position: relative; border: 1px solid #c9c4ad99; border-right-color: #c9c4ad44; border-radius: 13px 0 0 13px; padding: 16px 64px 14px 20px; background: #050a0b55; }
 .answer-prompt { display: block; color: #bcbbae; font-size: 16px; margin-bottom: 7px; }
 .answer-frame:focus-within { border-color: var(--gold); }
@@ -89,7 +93,7 @@ h1 { margin: 0; font-family: var(--display); font-size: clamp(26px, 3.3vw, 39px)
 .answer-submit { position: absolute; right: 10px; bottom: 12px; border: 1px solid #c9c4ad66; border-radius: 50%; height: 44px; width: 44px; color: var(--gold); background: transparent; font-size: 26px; }
 .feedback { color: #dbcaa5; line-height: 1.5; font-size: 18px; margin: 12px 0 0; }
 .hint-actions { display: flex; gap: 30px; margin-top: 8px; }
-.dev-links { display: flex; gap: 24px; padding: 10px 20px; background: #222c25; font: 13px system-ui; }
+.dev-links { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 10px 20px; background: #222c25; font: 13px system-ui; }
 .dev-links a { color: #e2d5b6; }
 .end-ornament { font-size: 60px; color: var(--gold); opacity: .75; padding-top: 8px; }
 .preview-bar { padding: 12px 20px; background: #d7c59d; color: #18211d; font: 13px system-ui; display: flex; justify-content: space-between; gap: 10px; }

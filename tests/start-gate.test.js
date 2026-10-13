@@ -181,8 +181,8 @@ test('step one offers the hint only on request and accepts roman numerals with c
   const reopened = bootApp(app.progress(), { search: '?dev=1' });
   assert.ok(reopened.nodes.has('success-continue'));
   app.click('success-continue');
-  assert.equal(app.progress().phase, 'complete');
-  assert.match(app.nodes.get('app').innerHTML, /À suivre/);
+  assert.deepEqual(app.progress(), { phase: 'travel', stepIndex: 1, arrived: false });
+  assert.match(app.nodes.get('app').innerHTML, /Le deuxième indice/);
 });
 
 test('normal step one permits answers immediately and shows optional distance without an arrival gate', () => {
@@ -209,4 +209,68 @@ test('author shortcuts open the real briefing and real first quest without chang
   app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
   assert.equal(app.progress(), null);
   assert.equal(app.watches.length, 0);
+});
+
+test('step two answer matching ignores punctuation, accents, case, spaces and the optional article', () => {
+  const step = game.steps[1];
+  for (const answer of ['île de Peilz', "l'île de Peilz", 'L’ÎLE DE PEILZ !', 'iledepeilz', ' île-de-Peilz. ', '« l ’ î l e de peilz »']) {
+    assert.equal(core.acceptsAnswer(answer, step.answers, step.answerOptions), true, answer);
+  }
+  for (const answer of ['', '!!!', 'île de Chillon', 'Peilz', 'île de Peilz et Chillon']) {
+    assert.equal(core.acceptsAnswer(answer, step.answers, step.answerOptions), false, answer);
+  }
+  assert.equal(core.acceptsAnswer('MCM-XXV', game.steps[0].answers), false);
+});
+
+test('step two hides the Byron dialogue until a fresh GPS fix within 10 metres', () => {
+  const app = bootApp({ phase: 'travel', stepIndex: 1, arrived: false });
+  assert.match(app.nodes.get('app').innerHTML, /Gramont/);
+  assert.equal(app.nodes.has('answer'), false);
+  assert.doesNotMatch(app.nodes.get('answer-area').innerHTML, /Byron/);
+  app.click('locate');
+  const fix = (metres, timestamp = Date.now()) => app.watches[0].success({
+    timestamp, coords: { ...game.steps[1].destination, latitude: game.steps[1].destination.latitude + metres / 111194.9266, accuracy: 5 },
+  });
+  fix(11);
+  assert.equal(app.nodes.has('answer'), false);
+  fix(0, Date.now() - 31000);
+  assert.equal(app.nodes.has('answer'), false);
+  fix(9);
+  assert.ok(app.nodes.has('answer'));
+  assert.match(app.nodes.get('answer-area').innerHTML, /trois grands arbres/);
+  assert.match(app.nodes.get('answer-area').innerHTML, /Lord Byron dans Le Prisonnier de Chillon/);
+  assert.deepEqual(app.progress(), { phase: 'travel', stepIndex: 1, arrived: true });
+  assert.deepEqual(app.cleared, [1]);
+  assert.ok(bootApp(app.progress()).nodes.has('answer'));
+});
+
+test('step two dev shortcut offers the requested hint and success without GPS or saved progress changes', () => {
+  const app = bootApp(undefined, { search: '?dev=1&preview=step2' });
+  assert.ok(app.nodes.has('answer'));
+  app.nodes.get('answer').value = 'Chillon';
+  app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  assert.equal(app.nodes.get('answer-feedback').textContent, 'Mauvaise réponse, tu veux un indice ?');
+  assert.equal(app.nodes.get('quest-hint').hidden, true);
+  app.click('show-hint');
+  assert.equal(app.nodes.get('quest-hint').textContent, 'Tu peux utiliser une carte topographique sur internet');
+  app.nodes.get('answer').value = 'L’ÎLE-DE-PEILZ !';
+  app.nodes.get('answer-form').dispatch('submit', { preventDefault() {} });
+  assert.match(app.nodes.get('app').innerHTML, /Bravo ! Tu as trouvé le deuxième indice\. Continue avec ton compagnon\./);
+  app.click('success-continue');
+  assert.match(app.nodes.get('app').innerHTML, /À suivre/);
+  assert.equal(app.watches.length, 0);
+  assert.equal(app.progress(), null);
+});
+
+test('the former end-of-content save resumes at the appended quest in normal and dev modes', () => {
+  for (const search of ['', '?dev=1']) {
+    const saved = { phase: 'complete', stepIndex: 1, arrived: false };
+    const app = bootApp(saved, { search });
+    assert.match(app.nodes.get('app').innerHTML, /Le deuxième indice/);
+    assert.equal(app.nodes.has('begin'), false);
+    assert.equal(app.nodes.has('answer'), search === '?dev=1');
+    assert.equal(app.storage.get('pierres_perdues_v1'), '{"0":true,"1":true,"2":true,"3":true}');
+    app.click('restart'); app.click('restart-accept');
+    assert.deepEqual(app.progress(), { phase: 'welcome', stepIndex: 0, arrived: false });
+  }
 });
