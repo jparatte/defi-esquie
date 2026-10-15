@@ -1,5 +1,5 @@
-import { game as configuredGame } from './game-config.js?v=8';
-import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=8';
+import { game as configuredGame } from './game-config.js?v=9';
+import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=9';
 
 const app = document.querySelector('#app');
 const params = new URLSearchParams(location.search);
@@ -101,7 +101,7 @@ function dialogPanel(speaker, choices) {
 }
 
 function panelContent() {
-  if (isVideoPhase()) return `<p class="eyebrow">${replaying ? 'Souvenir' : 'Esquie'}</p><h1>Écoute…</h1><p class="panel-copy">Esquie a quelque chose à te dire.</p>
+  if (isVideoPhase()) return `<p class="eyebrow">${replaying ? 'Souvenir' : 'Esquie'}</p><h1 class="video-heading">Écoute…</h1><p class="panel-copy">Esquie a quelque chose à te dire.</p>
     <div class="playback"><button id="play-toggle" class="playback-button" type="button">Lire la vidéo</button><span id="video-time" class="time">0:00</span></div>
     <div class="video-track" aria-hidden="true"><span id="video-progress"></span></div>
     <p id="media-status" class="panel-note" role="status">La suite apparaîtra à la fin de la vidéo.</p>`;
@@ -127,7 +127,7 @@ function render() {
   const chapter = isIntro() ? 'Prologue' : progress.phase === 'complete' ? (hasFinale() ? 'Épilogue' : 'À suivre') : `Étape ${String(progress.stepIndex + 1).padStart(2, '0')}`;
   const title = isIntro() ? game.intro.title : currentStep()?.title || (hasFinale() ? 'Le bout du voyage' : 'La suite du voyage');
   app.innerHTML = `${isDevelopment ? '<div class="preview-bar">Développement · GPS désactivé <a href="./">Mode normal</a></div><nav class="dev-links" aria-label="Raccourcis de test"><a href="?dev=1&preview=briefing">Après l’intro</a><a href="?dev=1&preview=step1">Étape 1</a><a href="?dev=1&preview=step2">Étape 2</a><a href="?dev=1&preview=step3">Étape 3</a><a href="?dev=1&preview=step4">Étape 4</a><a href="?dev=1&preview=assembly">Assemblage</a><a href="?dev=1&preview=arrival">Dernier trajet</a></nav>' : isPreview ? '<div class="preview-bar">Aperçu · aucune progression enregistrée <a href="./">Quitter</a></div>' : ''}
-    <section class="scene" aria-label="Scène avec Esquie">
+    <section class="scene${isVideoPhase() ? ' scene-video-active' : ''}" aria-label="Scène avec Esquie">
       <img class="scene-image ${isVideoPhase() ? 'video-backdrop' : ''}" src="${escape(imagePath())}" alt="${escape(isIntro() ? 'Esquie t’attend, son masque doré tourné vers toi.' : currentStep()?.imageAlt || 'Illustration de la prochaine rencontre.')}">
       <div class="scene-shade"></div>
       <header class="masthead"><p>${escape(game.title)}</p><button id="sound" class="sound-button" type="button" aria-label="${muted ? 'Activer le son' : 'Couper le son'}" aria-pressed="${muted}">${soundIcon()}</button></header>
@@ -248,7 +248,7 @@ function renderTravel() {
   const dialogue = currentStep().dialogue;
   const dialogueContent = dialogue ? `<div class="quest-dialogue"><h2 class="speaker">${escape(dialogue.speaker || 'Esquie')} :</h2><p class="panel-copy instruction">${escape(dialogue.text)}</p>${dialogue.quote ? `<figure class="quest-quote"><blockquote>${escape(dialogue.quote)}</blockquote><figcaption>${escape(dialogue.attribution)}</figcaption></figure>` : ''}</div>` : '';
   const puzzle = currentStep().puzzle;
-  const puzzleContent = puzzle ? `<div class="assembly-puzzle"><p class="panel-copy">${escape(puzzle.instruction)}</p><table aria-label="Les quatre indices à assembler"><thead><tr><th scope="col">Indice</th><th scope="col">Caractères</th></tr></thead><tbody>${puzzle.clues.map(clue => `<tr><td>${escape(clue.text)}</td><td>${escape(clue.range)}</td></tr>`).join('')}</tbody></table></div>` : '';
+  const puzzleContent = puzzle ? `<div class="assembly-puzzle"><ul class="assembly-clues" aria-label="Les quatre indices">${puzzle.clues.map(clue => `<li>${escape(clue.text)}</li>`).join('')}</ul><p class="panel-copy">${escape(puzzle.instruction)}</p><ul class="assembly-ranges" aria-label="Les quatre intervalles">${puzzle.clues.map(clue => `<li>${escape(clue.range)}</li>`).join('')}</ul></div>` : '';
   area.innerHTML = `${dialogueContent}${puzzleContent}<form id="answer-form" class="answer-form"><label for="answer" class="speaker">Roxane<span class="speaker-colon">:</span></label><div class="answer-frame"><label class="answer-prompt" for="answer">${escape(currentStep().prompt || 'Qu’as-tu découvert ?')}</label><input id="answer" name="answer" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" placeholder="Ta réponse…" required aria-describedby="answer-feedback quest-hint"><button class="answer-submit" aria-label="Valider ma réponse" type="submit">↗</button></div><p id="answer-feedback" class="feedback" role="status" aria-live="polite"></p><div id="hint-actions" class="hint-actions" hidden>${button('Oui', 'show-hint', true)}${button('Non', 'decline-hint', true)}</div><p id="quest-hint" class="feedback" role="status" aria-live="polite" hidden></p></form>`;
   document.querySelector('#answer-form').addEventListener('submit', event => {
     event.preventDefault();

@@ -23,6 +23,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .scene-image { width: 100%; height: 100%; object-fit: cover; object-position: center 43%; display: block; }
 .scene-image.video-backdrop { filter: blur(18px) brightness(.3); transform: scale(1.1); }
 .scene-shade { position: absolute; inset: 0; background: linear-gradient(#050b0dbb 0%, transparent 30%, transparent 64%, #101515 100%); pointer-events: none; z-index: 2; }
+.scene-video-active .scene-shade, .scene-video-active .scene-caption { display: none; }
 .masthead { position: absolute; top: 0; left: 0; right: 0; padding: calc(22px + env(safe-area-inset-top)) 30px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 4; gap: 16px; }
 .masthead p { margin: 0; font-family: var(--display); font-size: 12px; letter-spacing: .16em; color: #e2d5b6; text-shadow: 0 2px 8px #000; }
 .sound-button { display: grid; place-items: center; border: 1px solid #d3c6a55c; border-radius: 50%; width: 42px; height: 42px; background: #10151560; flex-shrink: 0; }
@@ -44,6 +45,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .panel-content { position: relative; z-index: 1; max-width: 740px; margin: auto; padding-top: 28px; animation: appear .5s ease-out both; }
 .eyebrow { margin: 0 0 13px; color: var(--gold); font: 10px var(--display); text-transform: uppercase; letter-spacing: .22em; }
 h1 { margin: 0; font-family: var(--display); font-size: clamp(26px, 3.3vw, 39px); font-weight: 400; line-height: 1.35; letter-spacing: -.025em; text-wrap: balance; }
+.video-heading { font-family: var(--dialogue); font-size: clamp(28px, 2.8vw, 34px); letter-spacing: 0; }
 .speaker { font-family: var(--dialogue); font-size: 29px; font-weight: 400; letter-spacing: 0; margin-bottom: 12px; display: block; }
 .speaker-colon { padding-left: 4px; }
 .panel-copy { font-size: 20px; line-height: 1.5; margin: 15px 0 26px; color: #c9c8bb; }
@@ -84,10 +86,9 @@ h1 { margin: 0; font-family: var(--display); font-size: clamp(26px, 3.3vw, 39px)
 .quest-quote { margin: 0 0 26px; padding-left: 18px; border-left: 1px solid var(--gold); }
 .quest-quote blockquote { margin: 0; font-size: 19px; line-height: 1.5; color: #c9c8bb; }
 .quest-quote figcaption { margin-top: 12px; font-size: 15px; line-height: 1.4; color: var(--muted); }
-.assembly-puzzle table { width: 100%; border-collapse: collapse; margin: 0 0 26px; font-size: 21px; }
-.assembly-puzzle th { text-align: left; font-size: 14px; color: var(--muted); font-weight: 400; }
-.assembly-puzzle th, .assembly-puzzle td { padding: 12px 8px; border-bottom: 1px solid #b6aa8533; }
-.assembly-puzzle th:last-child, .assembly-puzzle td:last-child { text-align: right; color: var(--gold); white-space: nowrap; }
+.assembly-clues, .assembly-ranges { padding: 0; list-style: none; font-size: 22px; line-height: 1.5; }
+.assembly-clues { display: grid; gap: 8px; margin: 26px 0 32px; }
+.assembly-ranges { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0 0 28px; color: var(--gold); }
 .answer-frame { position: relative; border: 1px solid #c9c4ad99; border-right-color: #c9c4ad44; border-radius: 13px 0 0 13px; padding: 16px 64px 14px 20px; background: #050a0b55; }
 .answer-prompt { display: block; color: #bcbbae; font-size: 16px; margin-bottom: 7px; }
 .answer-frame:focus-within { border-color: var(--gold); }

@@ -132,7 +132,7 @@ export const game = {
         clues: [
           { text: 'MCMXXV', range: '[4,5[' },
           { text: 'Ìle de Peilz', range: '[6,10]' },
-          { text: 'Médicinal', range: '[3,5]' },
+          { text: 'Médicinal', range: '[3,4]' },
           { text: 'Sion', range: '[1,4]' },
         ],
       },
