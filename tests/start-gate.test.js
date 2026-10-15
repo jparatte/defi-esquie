@@ -315,13 +315,12 @@ test('new GPS quests lead to assembly before the final journey, with hints and s
   fix(5, 0, Date.now() - 31000);
   assert.equal(app.progress().phase, 'travel');
   fix(5, 9);
-  assert.deepEqual(app.progress(), { phase: 'outro-pending', stepIndex: 5, arrived: true });
-  assert.equal(app.nodes.has('scene-video'), false);
-  assert.match(app.nodes.get('app').innerHTML, /Tu es arrivée/);
+  assert.deepEqual(app.progress(), { phase: 'final-a', stepIndex: 5, arrived: true });
+  assert.equal(app.nodes.get('scene-video').src, './scenes/outro_a.mp4');
   assert.ok(core.isValidProgress(app.progress(), game.steps));
   const reopened = bootApp(app.progress());
   assert.equal(reopened.watches.length, 0);
-  assert.match(reopened.nodes.get('app').innerHTML, /Tu es arrivée/);
+  assert.equal(reopened.nodes.get('scene-video').src, './scenes/outro_a.mp4');
 });
 
 test('all new author previews bypass GPS without saving and the medicinal spelling is accepted', () => {
@@ -334,7 +333,7 @@ test('all new author previews bypass GPS without saving and the medicinal spelli
       app.click('simulate-arrival');
     }
     assert.equal(app.nodes.has('answer'), preview !== 'arrival');
-    if (preview === 'arrival') assert.match(app.nodes.get('app').innerHTML, /Tu es arrivée/);
+    if (preview === 'arrival') assert.equal(app.nodes.get('scene-video').src, './scenes/outro_a.mp4');
   }
   const app = bootApp({ phase: 'travel', stepIndex: 2, arrived: false }, { search: '?dev=1' });
   app.click('simulate-arrival');
@@ -348,17 +347,49 @@ test('all new author previews bypass GPS without saving and the medicinal spelli
   assert.ok(core.isValidProgress(app.progress(), game.steps));
 });
 
-test('adding the closing video resumes a saved arrival and completes only after video end', () => {
-  const gameConfig = { ...game, steps: game.steps.map(step => step.kind === 'outro' ? { ...step, video: './scenes/closing-test.mp4' } : step) };
-  assert.deepEqual(core.validateGame(gameConfig), []);
-  for (const phase of ['travel', 'outro-pending', 'outro-video']) {
-    const app = bootApp({ phase, stepIndex: 5, arrived: true }, { gameConfig });
-    assert.equal(app.nodes.get('scene-video').src, './scenes/closing-test.mp4');
+test('both outro replies require video A to finish and lead to video B before completion', () => {
+  for (const choiceId of ['dialogue-choice', 'dialogue-choice-1']) {
+    const app = bootApp({ phase: 'travel', stepIndex: 5, arrived: true });
+    assert.equal(app.nodes.get('scene-video').src, './scenes/outro_a.mp4');
+    assert.equal(app.nodes.has('dialogue-choice'), false);
+    app.nodes.get('scene-video').dispatch('error');
+    assert.equal(app.progress().phase, 'final-a');
+    app.nodes.get('scene-video').dispatch('ended');
+    assert.equal(app.progress().phase, 'final-dialogue');
+    assert.equal(app.nodes.has('scene-video'), false);
+    assert.match(app.nodes.get('app').innerHTML, /src="\.\/scenes\/outro_still\.png"/);
+    assert.match(app.nodes.get('app').innerHTML, /Euh, pas sûre \.\.\./);
+    assert.match(app.nodes.get('app').innerHTML, /Je crois bien que oui/);
+    app.click('replay');
+    assert.equal(app.nodes.get('scene-video').src, './scenes/outro_a.mp4');
+    app.nodes.get('scene-video').dispatch('ended');
+    assert.equal(app.progress().phase, 'final-dialogue');
+    assert.ok(app.nodes.has('dialogue-choice-1'));
+    app.click(choiceId);
+    assert.equal(app.progress().phase, 'final-b');
+    assert.equal(app.nodes.get('scene-video').src, './scenes/outro_b.mp4');
+    assert.equal(app.nodes.has('dialogue-choice'), false);
     assert.equal(app.watches.length, 0);
     app.nodes.get('scene-video').dispatch('ended');
     assert.deepEqual(app.progress(), { phase: 'complete', stepIndex: 6, arrived: false });
     assert.match(app.nodes.get('app').innerHTML, /L’expédition s’achève/);
-    assert.ok(core.isValidProgress(app.progress(), gameConfig.steps));
+    assert.ok(core.isValidProgress(app.progress(), game.steps));
+    assert.equal(app.storage.get('pierres_perdues_v1'), '{"0":true,"1":true,"2":true,"3":true}');
+  }
+});
+
+test('outro resumes each phase and migrates the former pending arrival without GPS', () => {
+  for (const phase of ['final-a', 'final-dialogue', 'final-b', 'outro-pending', 'outro-video']) {
+    const app = bootApp({ phase, stepIndex: 5, arrived: true });
+    assert.equal(app.nodes.has('begin'), false);
+    assert.equal(app.nodes.has('locate'), false);
+    assert.equal(app.watches.length, 0);
+    if (phase === 'final-dialogue') {
+      assert.ok(app.nodes.has('dialogue-choice'));
+      assert.ok(app.nodes.has('dialogue-choice-1'));
+      app.click('dialogue-choice-1');
+      assert.equal(app.progress().phase, 'final-b');
+    } else assert.equal(app.nodes.get('scene-video').src, phase === 'final-b' ? './scenes/outro_b.mp4' : './scenes/outro_a.mp4');
   }
 });
 
@@ -370,8 +401,12 @@ test('former two-clue completion resumes at step three and the new config valida
   assert.equal(app.storage.get('pierres_perdues_v1'), '{"0":true,"1":true,"2":true,"3":true}');
   const badGate = { ...game, steps: game.steps.map(step => step.puzzle ? { ...step, requireArrival: true } : step) };
   assert.ok(core.validateGame(badGate).some(error => error.includes('coordonnées')));
-  const badVideo = { ...game, steps: game.steps.map(step => step.kind === 'outro' ? { ...step, video: 42 } : step) };
-  assert.ok(core.validateGame(badVideo).some(error => error.includes('conclusion')));
+  const badVideo = { ...game, steps: game.steps.map(step => step.kind === 'finale' ? { ...step, secondVideo: '' } : step) };
+  assert.ok(core.validateGame(badVideo).some(error => error.includes('final')));
+  for (const choices of [[], [''], ['Oui', null], 'Oui']) {
+    const badChoices = { ...game, steps: game.steps.map(step => step.kind === 'finale' ? { ...step, choices } : step) };
+    assert.ok(core.validateGame(badChoices).some(error => error.includes('dialogue')));
+  }
   assert.equal(core.isValidProgress({ phase: 'outro-video', stepIndex: 5, arrived: true }, game.steps), false);
   assert.equal(core.isValidProgress({ phase: 'outro-pending', stepIndex: 5, arrived: false }, game.steps), false);
 });
@@ -420,7 +455,7 @@ test('development journey displays each route and simulates arrival without GPS 
   assert.equal(app.progress().phase, 'travel');
   assert.equal(app.progress().arrived, false);
   app.click('simulate-arrival');
-  assert.equal(app.progress().phase, 'outro-pending');
+  assert.equal(app.progress().phase, 'final-a');
   assert.equal(app.watches.length, 0);
   app.document.hidden = true; app.documentEvents.get('visibilitychange')();
   app.document.hidden = false; app.documentEvents.get('visibilitychange')();

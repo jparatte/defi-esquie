@@ -54,7 +54,8 @@ export function validateGame(config) {
     if (step.kind === 'quest') {
       if (!Array.isArray(step.answers) || !step.answers.length || step.answers.some(a => typeof a !== 'string' || !normalizeAnswer(a)) || (!step.video && !step.successMessage) || !step.hint) errors.push(`Étape ${index + 1} : réponses, message de réussite ou indice manquants.`);
     } else if (step.kind === 'finale') {
-      if (index !== config.steps.length - 1 || !step.firstVideo || !step.secondVideo || !step.choice) errors.push('Le final doit être la dernière étape et contenir deux vidéos et un dialogue.');
+      const choices = step.choices ?? [step.choice];
+      if (index !== config.steps.length - 1 || !step.firstVideo || !step.secondVideo || !Array.isArray(choices) || !choices.length || choices.some(choice => typeof choice !== 'string' || !choice.trim())) errors.push('Le final doit être la dernière étape et contenir deux vidéos et un dialogue.');
     } else if (step.kind === 'outro') {
       if (index !== config.steps.length - 1 || (step.video != null && (typeof step.video !== 'string' || !step.video.trim()))) errors.push('La conclusion doit être la dernière étape et sa vidéo doit être un chemin valide ou null.');
     } else errors.push(`Étape ${index + 1} : type inconnu.`);

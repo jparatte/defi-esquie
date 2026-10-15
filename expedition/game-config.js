@@ -146,9 +146,9 @@ export const game = {
     },
     {
       id: 'taniere-de-laigle',
-      kind: 'outro',
+      kind: 'finale',
       title: 'Le dernier rendez-vous',
-      image: './scenes/intro_still.png',
+      image: './scenes/outro_still.png',
       imageAlt: 'Esquie t’attend au bout du voyage.',
       instruction: "Suis la route no. 2 jusqu'au panneau qui pointe vers le Bourg Historique\nTraverse la route et suis la route de l'Ours\nDirige toi vers le temple et passe sous les arches aux lanternes\nJusqu'à rejoindre la rue et la tanière de l'Aigle",
       destination: {
@@ -156,8 +156,10 @@ export const game = {
         longitude: 6.924606352128569,
         radiusMeters: 10,
       },
-      // Set this path when the closing video is ready; arrival stays saved meanwhile.
-      video: null,
+      firstVideo: './scenes/outro_a.mp4',
+      secondVideo: './scenes/outro_b.mp4',
+      speaker: 'Roxane',
+      choices: ['Euh, pas sûre ...', 'Je crois bien que oui'],
     },
   ],
 };

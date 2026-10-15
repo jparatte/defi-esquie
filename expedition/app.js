@@ -1,5 +1,5 @@
-import { game as configuredGame } from './game-config.js?v=7';
-import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=7';
+import { game as configuredGame } from './game-config.js?v=8';
+import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=8';
 
 const app = document.querySelector('#app');
 const params = new URLSearchParams(location.search);
@@ -43,6 +43,10 @@ function restoreProgress() {
   } catch { storageAvailable = false; return initialProgress(); }
   try {
     const saved = JSON.parse(raw);
+    // The former waiting screen now resumes the complete two-video finale.
+    if (['outro-pending', 'outro-video'].includes(saved?.phase) && saved.arrived === true && game.steps[saved.stepIndex]?.kind === 'finale' && Number.isInteger(saved.stepIndex)) {
+      return { phase: 'final-a', stepIndex: saved.stepIndex, arrived: true };
+    }
     // Continue from the former end when new steps are appended to the story.
     if (saved?.phase === 'complete' && Number.isInteger(saved.stepIndex) && saved.stepIndex > 0 && saved.stepIndex < game.steps.length && typeof saved.arrived === 'boolean') {
       return { phase: 'travel', stepIndex: saved.stepIndex, arrived: false };
@@ -89,9 +93,10 @@ function button(text, id, secondary = false) {
   return `<button id="${id}" class="${secondary ? 'quiet-button' : 'choice-button'}" type="button"><span class="choice-star" aria-hidden="true">✦</span><span>${escape(text)}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`;
 }
 
-function dialogPanel(speaker, choice) {
+function dialogPanel(speaker, choices) {
+  const replies = Array.isArray(choices) ? choices : [choices];
   return `<p class="eyebrow">Dialogue</p><h1 class="speaker">${escape(speaker)}<span class="speaker-colon">:</span></h1>
-    <div class="dialogue-frame">${button(choice, 'dialogue-choice')}</div>
+    <div class="dialogue-frame">${replies.map((choice, index) => button(choice, index ? `dialogue-choice-${index}` : 'dialogue-choice')).join('')}</div>
     <p class="panel-note">Choisis ta réponse pour continuer.</p>${button('Réécouter Esquie', 'replay', true)}`;
 }
 
@@ -104,7 +109,7 @@ function panelContent() {
     case 'welcome': return `<p class="eyebrow">Prologue</p><h1>Une rencontre<br>avec Esquie</h1><p class="panel-copy">${isStarting() ? 'Retrouve Esquie au point de départ.' : 'Roxane, ton expédition commence ici.'}</p>${isStarting() ? '<div id="location-area"></div><div id="start-area"></div>' : `<div class="dialogue-frame">${button('Commencer l’expédition', 'begin')}</div><p class="panel-note">Installe-toi un instant et active le son.</p>`}`;
     case 'intro-dialogue': return dialogPanel(game.intro.speaker, game.intro.choice);
     case 'intro-briefing': return `<p class="eyebrow">Dialogue</p><h1 class="speaker">${escape(game.intro.briefing.speaker)} :</h1><p class="panel-copy">${escape(game.intro.briefing.text)}</p><h2 class="speaker">${escape(game.intro.briefing.replySpeaker)} :</h2><div class="dialogue-frame">${button(game.intro.briefing.choice, 'briefing-choice')}</div>`;
-    case 'final-dialogue': return dialogPanel(currentStep().speaker || 'Roxane', currentStep().choice);
+    case 'final-dialogue': return dialogPanel(currentStep().speaker || 'Roxane', currentStep().choices ?? currentStep().choice);
     case 'quest-success': return `<p class="eyebrow">Indice retrouvé</p><h1 class="speaker">Esquie :</h1><p class="panel-copy">${escape(currentStep().successMessage)}</p><div class="dialogue-frame">${button('Continuer', 'success-continue')}</div>`;
     case 'outro-pending': return '<p class="eyebrow">Dernière rencontre</p><h1>Tu es arrivée.</h1><p class="panel-copy">Esquie t’attend ici.</p><p class="panel-note">La dernière rencontre se prépare.</p>';
     case 'travel': {
@@ -134,7 +139,8 @@ function render() {
       <footer class="panel-footer"><div class="journey-mark" aria-hidden="true">${progressMarkers()}</div><button id="restart" class="text-button" type="button">Recommencer</button></footer><div id="restart-confirmation"></div>
       ${!storageAvailable && !isPreview ? '<p class="storage-note" role="status">La sauvegarde est indisponible. Garde cette page ouverte pendant le voyage.</p>' : ''}
     </section>`;
-  document.querySelector('#dialogue-choice')?.addEventListener('click', () => transition(progress.phase === 'intro-dialogue' ? 'intro-b' : 'final-b'));
+  const replies = progress.phase === 'final-dialogue' ? currentStep().choices ?? [currentStep().choice] : [game.intro.choice];
+  replies.forEach((_, index) => document.querySelector(index ? `#dialogue-choice-${index}` : '#dialogue-choice')?.addEventListener('click', () => transition(progress.phase === 'intro-dialogue' ? 'intro-b' : 'final-b')));
   document.querySelector('#briefing-choice')?.addEventListener('click', nextStep);
   document.querySelector('#success-continue')?.addEventListener('click', () => currentStep().video ? transition('quest-video') : nextStep());
   document.querySelector('#replay')?.addEventListener('click', () => { replaying = true; render(); });
@@ -234,7 +240,7 @@ function renderTravel() {
     return;
   }
   if (arrivalRequired() && !progress.arrived) {
-    area.innerHTML = `<p class="locked-note"><span aria-hidden="true">◇</span> ${currentStep().kind === 'outro' ? 'Esquie t’attend à destination.' : 'Le dialogue se dévoilera à ton arrivée.'}</p>`;
+    area.innerHTML = `<p class="locked-note"><span aria-hidden="true">◇</span> ${['finale', 'outro'].includes(currentStep().kind) ? 'Esquie t’attend à destination.' : 'Le dialogue se dévoilera à ton arrivée.'}</p>`;
     return;
   }
   if (currentStep().kind === 'finale') { transition('final-a', { arrived: true }); return; }
