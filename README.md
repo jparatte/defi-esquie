@@ -12,17 +12,13 @@ The expedition saves separately under **`roxane-expedition-v2:progress`**. This 
 
 ## Starting-point field test
 
-After entering the password, the welcome screen displays distance to the starting point (46.39684880936414, 6.922843310544531). Tap **Activer la localisation** and allow location access. **Commencer l’expédition** appears once a fresh GPS fix is within **10 metres**. The destination remains hidden on the player screen, and reported GPS precision appears alongside the distance.
+After opening the expedition, the welcome screen displays distance to the starting point (46.39684880936414, 6.922843310544531). Tap **Activer la localisation** and allow location access. **Commencer l’expédition** appears once a fresh GPS fix is within **10 metres**. The destination remains hidden on the player screen, and reported GPS precision appears alongside the distance.
 
 Starting-point coordinates and the radius are configured in `expedition/game-config.js` under `start`. Arrival stays unlocked despite GPS drift and reloads. Use **Recommencer → Oui, recommencer** to relock it for another test. An interrupted journey resumes its saved phase without requiring a return to the starting point. Removing `start` restores the original ungated welcome screen.
 
 ## Open the last challenge
 
-The original page has **Démarrer le dernier défi**, followed by a password field. Set `continuation.passwordHash` to the SHA-256 digest of the normalized phrase. Case, accents and whitespace are ignored. An empty hash leaves access locked.
-
-After a correct phrase, the browser records access only in sessionStorage. The same tab can enter `/expedition/`; the guard redirects direct visits back to the original page until unlocked. Closing the tab ends the unlock session. Changing the configured hash invalidates previous unlocks.
-
-This prevents accidental spoilers. Since it runs on a public static site, it is not server authentication or a guarantee that technical visitors cannot inspect assets. The phrase is not stored as plaintext in the repository.
+**Démarrer le dernier défi** links directly to `expedition/`, with no password or session unlock. Direct expedition links also work. The normal welcome screen still requires arrival within **10 metres** of the configured starting point before the intro can begin. Existing saved progress and the old completed challenge are preserved.
 
 ## Develop and publish
 
@@ -30,11 +26,11 @@ This prevents accidental spoilers. Since it runs on a public static site, it is 
 
 Pour tester toute l’expédition sans être sur place, ajouter **`?dev=1`** à l’adresse :
 
-- `https://jparatte.github.io/defi-esquie/?dev=1` — saisir le mot de passe, puis commencer sans GPS.
-- `https://jparatte.github.io/defi-esquie/expedition/?dev=1` — ouvrir le parcours de développement après déverrouillage.
+- `https://jparatte.github.io/defi-esquie/?dev=1` — ouvrir le dernier défi, puis commencer sans GPS.
+- `https://jparatte.github.io/defi-esquie/expedition/?dev=1` — ouvrir directement le parcours de développement.
 - Les liens **Après l’intro**, **Étapes 1 à 4**, **Assemblage** et **Dernier trajet** dans la barre de développement donnent accès directement aux nouveaux écrans, sans sauvegarder ces aperçus.
 
-Le mode de développement ne demande jamais la localisation. Les indications du trajet s’affichent avant chaque énigme soumise au GPS ; **Simuler l’arrivée** ouvre ensuite le dialogue et la saisie. Le dernier trajet se valide avec le même bouton pour accéder à la conclusion. L’étape 1 et l’assemblage restent directement accessibles, car ils n’ont pas de barrière GPS. Sa progression utilise une clé séparée (`roxane-expedition-v2:development:progress`). Revenir à l’adresse sans `dev=1` réactive les barrières GPS et la sauvegarde normale. Le mot de passe reste nécessaire dans les deux modes.
+Le mode de développement ne demande jamais la localisation. Les indications du trajet s’affichent avant chaque énigme soumise au GPS ; **Simuler l’arrivée** ouvre ensuite le dialogue et la saisie. Le dernier trajet se valide avec le même bouton pour accéder à la conclusion. L’étape 1 et l’assemblage restent directement accessibles, car ils n’ont pas de barrière GPS. Sa progression utilise une clé séparée (`roxane-expedition-v2:development:progress`). Revenir à l’adresse sans `dev=1` réactive les barrières GPS et la sauvegarde normale.
 
 ### Contenu actuel
 
@@ -52,10 +48,10 @@ La dernière destination est **46.39642852805132, 6.924606352128569**, avec un r
 
 Chaque phase du final est sauvegardée. Les anciennes arrivées `outro-pending` ou `outro-video` reprennent la vidéo A sans devoir retourner au point GPS. Les fichiers fournis sont copiés du dossier `scenes/` du projet parent vers `expedition/scenes/`, qui est publié sur GitHub Pages.
 
-Les aperçus directs sont `expedition/?dev=1&preview=step2`, `step3`, `step4`, `assembly` et `arrival` (valeurs du paramètre `preview`), après déverrouillage. En mode normal, `?preview=arrival` permet de voir les indications du dernier trajet et de simuler l’arrivée ; en mode développement, les indications s’affichent également et **Simuler l’arrivée** ouvre la conclusion. Une sauvegarde ayant terminé le contenu précédent reprend à la nouvelle étape ajoutée, sans refaire l’introduction ou les indices déjà validés.
+Les aperçus directs sont `expedition/?dev=1&preview=step2`, `step3`, `step4`, `assembly` et `arrival` (valeurs du paramètre `preview`). En mode normal, `?preview=arrival` permet de voir les indications du dernier trajet et de simuler l’arrivée ; en mode développement, les indications s’affichent également et **Simuler l’arrivée** ouvre la conclusion. Une sauvegarde ayant terminé le contenu précédent reprend à la nouvelle étape ajoutée, sans refaire l’introduction ou les indices déjà validés.
 
-Run `npm start` in this repository and open http://127.0.0.1:4173. Use `npm test` for legacy-progress and password-gate regression checks. Configure real quest/finale content in `expedition/game-config.js`.
+Run `npm start` in this repository and open http://127.0.0.1:4173. Use `npm test` for progress-preservation, direct-entry and GPS-gate regression checks. Configure real quest/finale content in `expedition/game-config.js`.
 
-Publish the existing repository's `main` branch at its root through GitHub Pages. Keep its current domain/address. Asset paths are relative and require no build. The entry gate also applies to author previews such as `expedition/?preview=quest`; first unlock from the landing page.
+Publish the existing repository's `main` branch at its root through GitHub Pages. Keep its current domain/address. Asset paths are relative and require no build. Author previews such as `expedition/?preview=quest` also open directly.
 
 `index.original.html` is the pre-existing local reference backup and is ignored. The parent `esquie_expedition` folder contains the standalone prototype; this repository is the continuation deployment.

@@ -1,5 +1,5 @@
-import { game as configuredGame } from './game-config.js?v=9';
-import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=9';
+import { game as configuredGame } from './game-config.js?v=10';
+import { acceptsAnswer, distanceMeters, isAtDestination, initialProgress, isValidProgress, validateGame } from './game-core.js?v=10';
 
 const app = document.querySelector('#app');
 const params = new URLSearchParams(location.search);

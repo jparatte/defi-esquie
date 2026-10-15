@@ -297,14 +297,8 @@
     .continuation { margin: 24px auto 0; width: calc(100% - 40px); max-width: 480px; padding: 24px; border: 1px solid var(--gold-dim); border-radius: 18px; background: linear-gradient(135deg, #2a321d, #1e2919); }
     .continuation h2 { font-size: 1.1rem; color: var(--gold); margin-bottom: 10px; }
     .continuation p { font-size: .9rem; line-height: 1.6; color: var(--text); }
-    .continuation button { display: block; width: 100%; min-height: 48px; margin-top: 18px; border: 1px solid var(--gold); border-radius: 10px; background: var(--gold); color: #192313; font: 600 .95rem -apple-system, BlinkMacSystemFont, sans-serif; padding: 12px 16px; cursor: pointer; }
-    .continuation button:disabled { opacity: .6; cursor: wait; }
-    .continuation form { margin-top: 20px; border-top: 1px solid var(--gold-dim); padding-top: 18px; }
-    .continuation label { display: block; margin-bottom: 9px; font-size: .9rem; }
-    .continuation input { width: 100%; min-height: 48px; padding: 12px; font: inherit; font-size: 16px; border-radius: 8px; border: 1px solid var(--gold-dim); color: var(--text); background: var(--bg); }
-    .continuation input[aria-invalid=true] { border-color: var(--danger); }
-    .continuation input:focus-visible, .continuation button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-    .continuation #continuation-feedback { margin-top: 12px; color: #e3ca8a; }
+    .continuation .start-link { display: block; width: 100%; min-height: 48px; margin-top: 18px; border: 1px solid var(--gold); border-radius: 10px; background: var(--gold); color: #192313; font: 600 .95rem -apple-system, BlinkMacSystemFont, sans-serif; padding: 12px 16px; text-align: center; text-decoration: none; }
+    .continuation .start-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
   </style>
 </head>
 <body>
@@ -340,18 +334,12 @@
 <section class="continuation" aria-labelledby="continuation-title">
   <h2 id="continuation-title">La suite du voyage</h2>
   <p>Esquie t’attend pour une dernière aventure.</p>
-  <button id="start-last-challenge" type="button" aria-expanded="false" aria-controls="continuation-form">Démarrer le dernier défi</button>
-  <form id="continuation-form" hidden>
-    <label for="continuation-password">Le mot de passe d’Esquie</label>
-    <input id="continuation-password" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" required aria-describedby="continuation-feedback">
-    <button id="continuation-submit" type="submit">Ouvrir le défi</button>
-    <p id="continuation-feedback" role="status" aria-live="polite"></p>
-  </form>
+  <a id="start-last-challenge" class="start-link" href="./expedition/">Démarrer le dernier défi</a>
 </section>
 
-<script type="module" src="./continuation.js?v=4"></script>
+<script type="module" src="./continuation.js?v=5"></script>
 <script type="module">
-import { continuation } from './continuation-config.js?v=2';
+import { continuation } from './continuation-config.js?v=3';
 import { LEGACY_STORAGE_KEY, readLegacyProgress, displayedProgress } from './legacy-progress.js';
 // ── Data ──────────────────────────────────────────────────────────────────────
 

@@ -1,9 +1,1 @@
-import { continuation } from '../continuation-config.js?v=2';
-import { hasAccess } from '../continuation-access.js';
-
-let allowed = false;
-try { allowed = hasAccess(sessionStorage, continuation.passwordHash); }
-catch { /* Browser storage is unavailable: keep the expedition locked. */ }
-
-if (allowed) await import('./app.js?v=9');
-else location.replace(new URLSearchParams(location.search).get('dev') === '1' ? '../?dev=1' : '../');
+import './app.js?v=10';

@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { continuation } from '../continuation-config.js';
 import { readLegacyProgress, displayedProgress, LEGACY_STORAGE_KEY } from '../legacy-progress.js';
-import { hashPhrase, phraseMatches, hasAccess, grantAccess, ACCESS_KEY } from '../continuation-access.js';
 
 function memoryStorage(initial = {}) {
   const data = new Map(Object.entries(initial));
@@ -30,27 +29,21 @@ test('legacy empty or malformed saves safely fall back to an empty record', () =
   assert.deepEqual(readLegacyProgress({ getItem() { throw Error('blocked'); } }), {});
 });
 
-test('password gate rejects missing configuration and wrong answers, accepts normalized phrases', async () => {
-  const hash = await hashPhrase('Un mot de passe de test');
-  assert.equal(await phraseMatches('anything', ''), false);
-  assert.equal(await phraseMatches('wrong', hash), false);
-  assert.equal(await phraseMatches(' ', hash), false);
-  assert.equal(await phraseMatches('UN MOT DE PASSE DE TEST', hash), true);
-  assert.equal(await hashPhrase(' ÉSQUIE '), await hashPhrase('esquie'));
-});
-
-test('unlock is scoped to the configured password and separate from all progress keys', async () => {
-  const hash = await hashPhrase('test phrase');
-  const storage = memoryStorage({ [LEGACY_STORAGE_KEY]: 'legacy-save', 'roxane-expedition-v1:progress': 'new-save' });
-  assert.equal(hasAccess(storage, hash), false);
-  assert.equal(grantAccess(storage, ''), false);
-  assert.ok(grantAccess(storage, hash));
-  assert.ok(hasAccess(storage, hash));
-  assert.equal(hasAccess(storage, await hashPhrase('changed phrase')), false);
-  assert.equal(storage.getItem(ACCESS_KEY), hash);
-  assert.equal(storage.getItem(LEGACY_STORAGE_KEY), 'legacy-save');
-  assert.equal(storage.getItem('roxane-expedition-v1:progress'), 'new-save');
-  assert.equal(grantAccess({ setItem() { throw Error('blocked'); } }, hash), false);
+test('landing link opens the expedition directly and preserves development mode without storage access', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const linkMarkup = html.match(/<a id="start-last-challenge"[^>]*>/)[0];
+  assert.match(linkMarkup, /href="\.\/expedition\/"/);
+  assert.doesNotMatch(html, /continuation-password|continuation-form/);
+  const script = fs.readFileSync(new URL('../continuation.js', import.meta.url), 'utf8');
+  for (const [search, expected] of [['', './expedition/'], ['?dev=1', './expedition/?dev=1'], ['?dev=0', './expedition/']]) {
+    const link = { href: './expedition/' };
+    vm.runInNewContext(script, {
+      URLSearchParams, location: { search },
+      document: { querySelector: selector => { assert.equal(selector, '#start-last-challenge'); return link; } },
+      // No localStorage or sessionStorage: navigation must not depend on either.
+    });
+    assert.equal(link.href, expected);
+  }
 });
 
 function bootLegacy({ saved, archiveCompleted }) {
